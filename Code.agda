@@ -7,23 +7,28 @@ open import TypeUniverse
 open import Expression
 open import Denotation
 
+-- Shape of the stack.
 Shape : Set
 Shape = List U
 
+-- Instructions of the stack machine.
 data Instr : Shape → Shape → Set where
   PUSH : ∀ {u s} → el u → Instr s (u ∷ s)
   ADD  : ∀ {s} → Instr (Nat ∷ Nat ∷ s) (Nat ∷ s)
 
+-- Code is an (indexed) list of instructions.
 infixr 5 _,,_
 data Code : Shape → Shape → Set where
   cnil : ∀ {s} → Code s s
   _,,_ : ∀ {s t u} → Instr s t → Code t u → Code s u
 
+-- Stack is a shape-indexed... well, stack.
 infixr 5 _::_
 data Stack : Shape → Set where
   ∅ : Stack []
   _::_ : ∀ {u s} → el u → Stack s → Stack (u ∷ s)
 
+-- Code concatenation.
 infixr 6 _⊕_
 _⊕_ : ∀ {s t u} → Code s t → Code t u → Code s u
 _⊕_ cnil      cs = cs
