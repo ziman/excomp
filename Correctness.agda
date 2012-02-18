@@ -12,10 +12,13 @@ open import Code
 open import Compiler
 open import Execution
 
+-- Correctness of operator translation. Because of the way how the translation
+-- is written, this is not "free" and must be proved for each operator.
 op-correct : ∀ {u v w q st} {x : el u} {y : el v} (op : Op u v w)
   → exec-instr (opInstr {u} {v} {w} {q} op) (x :: y :: st) ≡ denOp op x y :: st
 op-correct Plus = refl
 
+-- Exec distributes over ⊕.
 compile-distr : ∀ {t u v} (code₁ : Code t u) (code₂ : Code u v) (st : Stack t)
   → exec (code₁ ⊕ code₂) st ≡ exec code₂ (exec code₁ st)
 compile-distr cnil      cs st = refl
@@ -31,6 +34,8 @@ compile-distr (i ,, is) cs st = begin
   where
     open ≡-Reasoning
 
+-- The main correctness theorem: executing compiled code is equivalent
+-- to pushing the correspondent denotation to the stack.
 correctness : ∀ {u s} (e : Exp u) (st : Stack s) → exec (compile e) st ≡ denExp e :: st
 correctness (Lit x)      _  = refl
 correctness (Bin op l r) st = begin

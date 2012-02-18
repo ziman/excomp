@@ -6,10 +6,12 @@ open import Data.Empty
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
+-- Types available in the modelled language.
 data U : Set where
   Nat : U
   _⇒_ : U → U → U
 
+-- Interpretation of the types into Agda types.
 el : U → Set
 el Nat      = ℕ
 el (x ⇒ y) = el x → el y
@@ -21,6 +23,7 @@ private
   eq-lemma₂ : ∀ {p q r s : U} → (p ⇒ q) ≡ (r ⇒ s) → q ≡ s
   eq-lemma₂ refl = refl
 
+-- Equality of the types is decidable.
 eqDecU : ∀ (x y : U) → Dec (x ≡ y)
 eqDecU Nat Nat = yes refl
 eqDecU (p ⇒ q) (r  ⇒ s) with eqDecU p r | eqDecU q s
