@@ -27,6 +27,6 @@ eqDecU (p ⇒ q) (r  ⇒ s) with eqDecU p r | eqDecU q s
 eqDecU (p ⇒ q) (.p ⇒ .q) | yes refl | yes refl = yes refl
 eqDecU (p ⇒ q) (r  ⇒ .q) | no  pfL  | yes refl = no (pfL ∘ eq-lemma₁)
 eqDecU (p ⇒ q) (.p ⇒  s) | yes refl | no  pfR  = no (pfR ∘ eq-lemma₂)
-eqDecU (p ⇒ q) (r  ⇒  s) | no  pfL  | no  pfR  = no {!pfL ∘ eq-lemma₁!}
+eqDecU (p ⇒ q) (r  ⇒  s) | no  pfL  | no  pfR  = no (pfL ∘ eq-lemma₁)
 eqDecU Nat (_ ⇒ _) = no (λ ())
 eqDecU (_ ⇒ _) Nat = no (λ ())
