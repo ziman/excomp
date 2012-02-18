@@ -14,13 +14,17 @@ data Instr : Shape → Shape → Set where
   PUSH : ∀ {u s} → el u → Instr s (u ∷ s)
   ADD  : ∀ {s} → Instr (Nat ∷ Nat ∷ s) (Nat ∷ s)
 
-infixr 3 _,,_
-data Code : Shape → Shape → Set where
-  cnil : ∀ {s} → Code s s
-  _,,_ : ∀ {s t u} → Instr s t → Code t u → Code s u
+infixr 5 _,,_
+data InstrSeq : Shape → Shape → Set where
+  inil : ∀ {s} → InstrSeq s s
+  _,,_ : ∀ {s t u} → Instr s t → InstrSeq t u → InstrSeq s u
 
-infixr 3 _::_
+infixr 5 _::_
 data Stack : Shape → Set where
-  snil : Stack []
+  ∅ : Stack []
   _::_ : ∀ {u s} → el u → Stack s → Stack (u ∷ s)
 
+-- [Code s t r] represents code transforming a stack of shape [s]
+-- into a stack of shape [t], leaving the total result type open.
+Code : Shape → Shape → Set
+Code s t = {r : Shape} → InstrSeq t r → InstrSeq s r
