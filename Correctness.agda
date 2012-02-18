@@ -12,18 +12,23 @@ open import Code
 open import Compiler
 open import Execution
 
-exec-distr : ∀ {s r t} {code₁ : Code t r} {code₂ : Code s t} {st : Stack s} → exec (code₂ ∘ code₁) st ≡ (exec code₁ ∘ exec code₂) st
-exec-distr {[]} {r} {t} {code₁} {code₂} {∅} = {!!}
-exec-distr {p ∷ q} {r} {t} {code₁} {code₂} {x :: y} = {!!}
+compile-distr : ∀ {t u v} (code₁ : Code t u) (code₂ : Code u v) (st : Stack t)
+  → exec (code₁ ⊕ code₂) st ≡ exec code₂ (exec code₁ st)
+compile-distr cnil      code₂ st = refl
+compile-distr (i ,, is) code₂ st = begin
+    exec ((i ,, is) ⊕ code₂) st
+      ≡⟨ {!!} ⟩
+    exec code₂ (exec (i ,, is) st)
+      ∎
+  where
+    open ≡-Reasoning
 
 correctness : ∀ {u s} (e : Exp u) (st : Stack s) → exec (compile e) st ≡ denExp e :: st
 correctness (Lit x)      _  = refl
 correctness (Bin op l r) st = begin
     exec (compile (Bin op l r)) st
       ≡⟨ refl ⟩
-    exec (compile r ∘ compile l ∘ _,,_ (opInstr op)) st
-      ≡⟨ refl ⟩
-    exec-seq (compile r (compile l (opInstr op ,, inil))) st
+    exec (compile r ⊕ compile l ⊕ single (opInstr op)) st
       ≡⟨ {!!} ⟩
     denExp (Bin op l r) :: st
       ∎
