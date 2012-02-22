@@ -13,6 +13,9 @@ denOp Plus = _+_
 -- Denotation of expressions.
 denExp : ∀ {u} → Exp u → Maybe (el u)
 denExp Throw        = nothing
+denExp (Catch e h) with denExp e
+... | just x  = just x
+... | nothing = denExp h
 denExp (Lit n)      = just n
 denExp (Bin op l r) with denExp l | denExp r
 ... | just x | just y = just (denOp op x y)

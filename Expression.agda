@@ -9,5 +9,6 @@ data Op : U → U → U → Set where
 -- The type of expressions of the modelled language.
 data Exp : U → Set where
   Throw : ∀ {u} → Exp u
+  Catch : ∀ {u} → Exp u → Exp u → Exp u
   Lit : ∀ {u} → el u → Exp u
   Bin : ∀ {u v w} → Op u v w → Exp u → Exp v → Exp w

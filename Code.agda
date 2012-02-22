@@ -16,35 +16,33 @@ data Item : Set where
 Shape : Set
 Shape = List Item
 
-data Marked : Shape → Set where
-  Here  : ∀ {u s} → Marked (Han u ∷ s)
-  Later : ∀ {x s} → Marked s → Marked (x ∷ s)
+unwind : (s : Shape) → Shape
+unwind []           = []
+unwind (Val _ ∷ xs) = unwind xs
+unwind (Han _ ∷ xs) = xs
 
-unwind : (s : Shape) → Marked s → Shape
-unwind (_     ∷ xs) (Later pf) = unwind xs pf
-unwind (Han _ ∷ xs) Here       = xs
-unwind []           ()
+mutual
+  -- Instructions of the stack machine.
+  data Instr : Shape → Shape → Set where
+    PUSH   : ∀ {u s} → el u → Instr s (Val u ∷ s)
+    ADD    : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
+    MARK   : ∀ {u s} → Code s (Val u ∷ s) → Instr s (Han u ∷ s) 
+    UNMARK : ∀ {u s} → Instr (Han u ∷ s) s
+    THROW  : ∀ {s} → Instr s (unwind s)
 
--- Instructions of the stack machine.
-data Instr : Shape → Shape → Set where
-  PUSH  : ∀ {u s} → el u → Instr s (Val u ∷ s)
-  ADD   : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
-  MARK  : ∀ {u s} → Exp u → Instr s (Han u ∷ s) 
-  THROW : ∀ {s} → (pf : Marked s) → Instr s (unwind s pf)
-
--- Code is an (indexed) list of instructions.
-infixr 5 _,,_
-data Code : Shape → Shape → Set where
-  cnil : ∀ {s} → Code s s
-  _,,_ : ∀ {s t u} → Instr s t → Code t u → Code s u
+  -- Code is an (indexed) list of instructions.
+  infixr 5 _,,_
+  data Code : Shape → Shape → Set where
+    cnil : ∀ {s} → Code s s
+    _,,_ : ∀ {s t u} → Instr s t → Code t u → Code s u
 
 -- Stack is a shape-indexed... well, stack.
 infixr 5 _::_
 infixr 5 _!!_
 data Stack : Shape → Set where
-  ∅ : Stack []
+  snil : Stack []
   _::_ : ∀ {u s} → el u → Stack s → Stack (Val u ∷ s)
-  _!!_ : ∀ {u s} → Exp u → Stack s → Stack (Han u ∷ s)
+  _!!_ : ∀ {u s} → Code s (Val u ∷ s) → Stack s → Stack (Han u ∷ s)
 
 -- Code concatenation.
 infixr 6 _⊕_
