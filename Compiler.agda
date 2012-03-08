@@ -17,15 +17,9 @@ open import Code
 opInstr : ∀ {s t u v} → Op s t u → Instr (Val s ∷ Val t ∷ v) (Val u ∷ v)
 opInstr Plus = ADD
 
-stackAction : ∀ {u} → Exp u → Shape → Shape
-stackAction {u} (Lit _)     s = Val u ∷ s  
-stackAction {u} (Bin _ _ _) s = Val u ∷ s
-stackAction {u} (Catch _ _) s = Val u ∷ s
-stackAction {u} Throw       s = unwind s
-
 -- Compile expressions to the corresponding code.
-compile : ∀ {u s} → (e : Exp u) → Code s (stackAction e s)
+compile : ∀ {u s} → (e : Exp u) → Code s (Val u ∷ s)
 compile (Lit n)      = ⟦ PUSH n ⟧
 compile Throw        = ⟦ THROW ⟧
-compile (Catch e h)  = ⟦ MARK {!!} ⟧ ⊕ compile e ⊕ ⟦ {!UNMARK!} ⟧
-compile (Bin op l r) = compile r ⊕ compile l ⊕ ⟦ {- opInstr op -} {!!} ⟧
+compile (Catch e h)  = ⟦ MARK (compile h) ⟧ ⊕ compile e ⊕ ⟦ UNMARK ⟧
+compile (Bin op l r) = compile r ⊕ compile l ⊕ ⟦ opInstr op ⟧
