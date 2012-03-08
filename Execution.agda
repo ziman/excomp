@@ -9,33 +9,34 @@ open import TypeUniverse
 open import Expression
 open import Denotation
 open import Code
-open import Compiler
 
-unwind : Shape → Shape
-unwind [] = []
-unwind (Val _ ∷ xs) = unwind xs
-unwind (Han u ∷ xs) = Val u ∷ xs
+unwindHead : List Shape → Shape
+unwindHead []      = []
+unwindHead (s ∷ _) = s
 
-_>>=_ : ∀ {s t w} → (Stack s ⊎ Stack w) → (Stack s → Stack t ⊎ Stack t) → Stack [] ⊎ Stack t
-_>>=_ (inj₁ snil) _ = inj₁ snil 
-_>>=_ (inj₂ st)   f = f st
+unwindTail : List Shape → List Shape
+unwindTail []       = []
+unwindTail (_ ∷ ss) = ss
 
-execInstr : ∀ {s t} → Instr s t → Stack s → Stack t ⊎ Stack (unwind t)
-execInstr _ st = inj₁ snil
+unwindStack : ∀ {s w} → Stack s w → Stack (unwindHead w) (unwindTail w)
+unwindStack {_} {[]}     st = snil
+unwindStack {_} {x ∷ xs} st = unwindStack' st
+  where
+    unwindStack' : ∀ {s x xs} → Stack s (x ∷ xs) → Stack x xs
+    unwindStack' (_ :: xs) = unwindStack' xs
+    unwindStack' (x !! xs) = xs
 
--- Execute a code block above the given stack.
-exec : ∀ {s t} → Code s t → Stack s → Stack t ⊎ Stack (unwind t)
-exec cnil      st = inj₁ st
-exec (i ,, is) st = execInstr i st >>= exec is
-{-
-exec cnil            st             = st
-exec (PUSH x ,, is)  st             = exec is (x :: st)
-exec (THROW  ,, is)  st             = exec is (■:: st)
-exec (MARK h ,, is)  st             = exec is (h !! st)
-exec (UNMARK ,, is)  (v :: _ !! st) = exec is (v :: st) 
-exec (UNMARK ,, is)  (■::(h !! st)) = exec is (exec h st)
-exec (ADD    ,, is)  (x :: y :: st) = exec is ((x + y) :: st)
-exec (ADD    ,, is)  (■::(_ :: st)) = exec is (■:: st)
-exec (ADD    ,, is)  (_ ::  ■:: st) = exec is (■:: st)
-exec (ADD    ,, is)  (■:: (■:: st)) = exec is (■:: st)
--}
+exec : ∀ {s₁ w₁ s₂ w₂}
+  → c[ s₁ , w₁ ]→[ s₂ , w₂ ]
+  → Stack s₁ w₁
+  → Stack s₂ w₂ ⊎ Stack (unwindHead w₂) (unwindTail w₂)
+exec cnil           st             = inj₁ st
+exec (PUSH n ,, is) st             = exec is (n :: st)
+exec (ADD    ,, is) (x :: y :: st) = exec is ((x + y) :: st)
+exec (UNMARK ,, is) (x :: _ !! st) = exec is (x :: st)
+exec (MARK h ,, is) st             = exec is (h !! st)
+exec (THROW  ,, is) st             = exec {!!} {!!}
+
+sample : Stack (Val Nat ∷ []) [] ⊎ Stack [] []
+sample = exec (PUSH 3 ,, THROW ,, ADD ,, cnil) snil
+
