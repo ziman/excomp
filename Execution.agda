@@ -4,39 +4,31 @@ open import Function
 open import Data.Nat
 open import Data.Sum
 open import Data.List
+open import Data.Star
 
 open import TypeUniverse
 open import Expression
 open import Denotation
 open import Code
 
-unwindHead : List Shape → Shape
-unwindHead []      = []
-unwindHead (s ∷ _) = s
+data State : Shape → Set where
+  ✓[_] : ∀ {s} → Stack s → State s
+  ![_,_] : ∀ {s t} → ℕ → Stack t → State s
 
-unwindTail : List Shape → List Shape
-unwindTail []       = []
-unwindTail (_ ∷ ss) = ss
+mutual
+  execInstr : ∀ {s t} → Instr s t → State s → State t
+  execInstr UNMARK   ![ zero , st ] = {!!}
+  execInstr UNMARK   ![ suc n , st ] = ![ n , st ]
+  execInstr (MARK _) ![ n , st ] = ![ suc n , st ]
+  execInstr _        ![ n , st ] = ![ n , st ]
+  execInstr (PUSH y) ✓[ st ] = ✓[ y :: st ]
+  execInstr ADD      ✓[ x :: y :: st ] = ✓[ (x + y) :: st ]
+  execInstr (MARK y) s' = {!!}
+  execInstr UNMARK   s' = {!!}
+  execInstr THROW    s' = {!!}
 
-unwindStack : ∀ {s w} → Stack s w → Stack (unwindHead w) (unwindTail w)
-unwindStack {_} {[]}     st = snil
-unwindStack {_} {x ∷ xs} st = unwindStack' st
-  where
-    unwindStack' : ∀ {s x xs} → Stack s (x ∷ xs) → Stack x xs
-    unwindStack' (_ :: xs) = unwindStack' xs
-    unwindStack' (x !! xs) = xs
+  exec : ∀ {s t} → Code s t → State s → State t
+  exec ε        st = st
+  exec (i ◅ is) st = exec is (execInstr i st)
 
-exec : ∀ {s₁ w₁ s₂ w₂}
-  → c[ s₁ , w₁ ]→[ s₂ , w₂ ]
-  → Stack s₁ w₁
-  → Stack s₂ w₂ ⊎ Stack (unwindHead w₂) (unwindTail w₂)
-exec cnil           st             = inj₁ st
-exec (PUSH n ,, is) st             = exec is (n :: st)
-exec (ADD    ,, is) (x :: y :: st) = exec is ((x + y) :: st)
-exec (UNMARK ,, is) (x :: _ !! st) = exec is (x :: st)
-exec (MARK h ,, is) st             = exec is (h !! st)
-exec (THROW  ,, is) st             = exec {!!} {!!}
-
-sample : Stack (Val Nat ∷ []) [] ⊎ Stack [] []
-sample = exec (PUSH 3 ,, THROW ,, ADD ,, cnil) snil
 
