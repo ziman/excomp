@@ -14,25 +14,29 @@ open import Expression
 open import Denotation
 open import Code
 
-unwindShape : Shape → ℕ → Shape
-unwindShape (Han _ ∷ xs) zero    = xs
-unwindShape (Han _ ∷ xs) (suc n) = unwindShape xs n
-unwindShape (Val _ ∷ xs) n       = unwindShape xs n
-unwindShape []           _       = []
+data _+ (a : Set) : Set where
+  S   : a → a +
+  _∷_ : a → a + → a +
+
+unwindShape : Shape → U + → Shape
+unwindShape (Han _ ∷ xs) (S _)    = xs
+unwindShape (Han _ ∷ xs) (_ ∷ us) = unwindShape xs us
+unwindShape (Val _ ∷ xs) us       = unwindShape xs us
+unwindShape []           _        = []
 
 data Resume (s : Shape) : Set where
   Succ : {u : U} → Code s (Val u ∷ s) → Stack s → Resume s
   Fail : Resume s
 
-unwindStack : ∀ {s} → Stack s → (n : ℕ) → Resume (unwindShape s n)
-unwindStack (h !! xs) zero    = Succ h xs
-unwindStack (_ !! xs) (suc n) = unwindStack xs n
-unwindStack (_ :: xs) n       = unwindStack xs n
-unwindStack snil      _       = Fail
+unwindStack : ∀ {s} → Stack s → (us : U +) → Resume (unwindShape s us)
+unwindStack (h !! xs) (S _)    = Succ h xs
+unwindStack (_ !! xs) (u ∷ us) = unwindStack xs us
+unwindStack (_ :: xs) us       = unwindStack xs us
+unwindStack snil      _        = Fail
 
 data State (s : Shape) : Set where
   ✓[_] : Stack s → State s
-  ![_,_] : (n : ℕ) → Resume (unwindShape s n) → State s
+  ![_,_] : (us : U +) → Resume (unwindShape s us) → State s
 
 mutual
   -- Instruction execution
@@ -40,19 +44,18 @@ mutual
   
   -- Normal operation
   execInstr ADD      ✓[ x :: y :: st ] = ✓[ (x + y) :: st ]
-  execInstr UNMARK   ✓[ x :: _ !! st ] = ✓[ x :: st ]
-  execInstr (PUSH x) ✓[ st ] = ✓[ x :: st ]
-  execInstr (MARK h) ✓[ st ] = ✓[ h !! st ]
+  execInstr UNMARK   ✓[ x :: _ !! st ] = ✓[       x :: st ]
+  execInstr (PUSH x) ✓[           st ] = ✓[       x :: st ]
+  execInstr (MARK h) ✓[           st ] = ✓[       h !! st ]
 
   -- Exception throwing
-  execInstr THROW ✓[ st ] with unwindStack st zero
-  ... | Succ h st' = {!![!}
-  ... | Fail = {!!}
+  execInstr (THROW {u}) ✓[ st ] = ![ S u , unwindStack st (S _) ]
 
   -- Non-trivial exception processing
-  execInstr (UNMARK {u} {s})   ![ zero , r ] = {!!}
-  execInstr UNMARK   ![ suc n , r ] = ![ n , r ]
-  execInstr (MARK _) ![ n , r ] = ![ suc n , r ]
+  execInstr (UNMARK {v} {s})   ![ S u    , Succ h st ] = {! execCode h ✓[ st ] !}
+  execInstr UNMARK   ![ S u    , Fail ]      = ![ S u , Fail ]
+  execInstr UNMARK   ![ u ∷ us , r ]         = ![ us     , r ]
+  execInstr (MARK {u} _) ![ us , r ]         = ![ u ∷ us , r ]
   
   -- Trivial exception processing: instruction skipping
   execInstr THROW    ![ n , r ] = ![ n , r ]
