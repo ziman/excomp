@@ -28,11 +28,11 @@ unwindShape (Val _ ∷ xs) n       = unwindShape xs n
 unwindShape []           _       = []
 
 data Resume (s : Shape) : Maybe U → Set where
-  Succ : ∀ {u} → Code s (Val u ∷ s) → Stack s → Resume s (just u)
+  Okay : ∀ {u} → Code s (Val u ∷ s) → Stack s → Resume s (just u)
   Fail : Resume s nothing
 
 unwindStack : ∀ {s} → Stack s → (n : ℕ) → Resume (unwindShape s n) (unwindHnd s n)
-unwindStack (h !! xs) zero    = Succ h xs
+unwindStack (h !! xs) zero    = Okay h xs
 unwindStack (_ !! xs) (suc n) = unwindStack xs n
 unwindStack (_ :: xs) n       = unwindStack xs n
 unwindStack snil      _       = Fail
@@ -57,7 +57,7 @@ mutual
   -- Non-trivial exception processing
   execInstr (MARK _) ![ n     , r         ] = ![ suc n , r ]
   execInstr UNMARK   ![ suc n , r         ] = ![ n     , r ]
-  execInstr UNMARK   ![ zero  , Succ h st ] = execCode h ✓[ st ]
+  execInstr UNMARK   ![ zero  , Okay h st ] = execCode h ✓[ st ]
 
   -- Trivial exception processing: instruction skipping
   execInstr THROW    ![ n , r ] = ![ n , r ]
