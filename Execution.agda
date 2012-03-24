@@ -43,7 +43,7 @@ data State (s : Shape) : Set where
 
 mutual
   -- Instruction execution
-  execInstr : ∀ {s t} → Instr s t → State s → State t
+  execInstr : ∀ {s t} → (i : Instr s t) → State s → State t
   
   -- Normal operation
   execInstr ADD      ✓[ x :: y :: st ] = ✓[ (x + y) :: st ]
@@ -65,8 +65,47 @@ mutual
   execInstr (PUSH _) ![ n , r ] = ![ n , r ]
 
   -- Code execution
-  execCode : ∀ {s t} → Code s t → State s → State t
+  execCode : ∀ {s t} → (c : Code s t) → State s → State t
   execCode ε        st = st
   execCode (i ◅ is) st = execCode is (execInstr i st)
 
+data Handler : Shape → Shape → Set where
+  Cong : ∀ {s t u}
+    → Handler s t
+    → Handler (Val u ∷ s) t
+  Push : ∀ {s t u}
+    → Code s (Val u ∷ s)
+    → Handler s t
+    → Handler (Han u ∷ s) t
+  Unhandled : ∀ {s t} → Handler s t
+
+HShape : Set
+HShape = List (Shape × Shape)
+
+step : ∀ {s t u} → Instr s t → Handler s u → Handler t u
+step (MARK h') h                  = Push h' h
+step _         Unhandled          = Unhandled
+step ADD       (Cong (Cong h))    = Cong h
+step ADD       (Cong Unhandled)   = Unhandled
+step (PUSH _)  h                  = Cong h
+step THROW     h                  = Cong h
+step UNMARK    (Cong (Push h' h)) = Cong h
+step UNMARK    (Cong Unhandled)   = Unhandled
+
+data Term : ∀ {s t} → Code s t → Set where
+  Now : ∀ {s} → Term {s} {s} ε
+  Later : ∀ {s t u} {i : Instr s t} {c : Code t u} → Term c → Term (i ◅ c)
+
+data _×'_ {a b : Set} (P Q : a → b → Set) : a → b → Set where
+  _,'_ : ∀ {x y} → P x y → Q x y → (P ×' Q) x y
+
+Handler' : Shape → Shape → Shape → Set
+Handler' t p q = Handler p t
+
+annotate : ∀ {s t} → Star Instr s t → Star (Instr ×' Handler' t) s t
+annotate c = annotate' c Unhandled
+  where
+    annotate' : ∀ {s u} → Star Instr s u → Handler s u → Star (Instr ×' Handler' u) s u
+    annotate' ε        h = ε
+    annotate' (i ◅ is) h = (i ,' h) ◅ annotate' is (step i h)
 
