@@ -95,6 +95,10 @@ step UNMARK    (Cong Unhandled)   = Unhandled
 data Term : ∀ {s t} → Code s t → Set where
   Now : ∀ {s} → Term {s} {s} ε
   Later : ∀ {s t u} {i : Instr s t} {c : Code t u} → Term c → Term (i ◅ c)
+  Handle : ∀ {s t u} {c : Code s (Val u ∷ s)} {is : Code (Val u ∷ s) t}
+    → Term c
+    → Term is
+    → Term (UNMARK ◅ is)
 
 data _×'_ {a b : Set} (P Q : a → b → Set) : a → b → Set where
   _,'_ : ∀ {x y} → P x y → Q x y → (P ×' Q) x y
@@ -102,10 +106,26 @@ data _×'_ {a b : Set} (P Q : a → b → Set) : a → b → Set where
 Handler' : Shape → Shape → Shape → Set
 Handler' t p q = Handler p t
 
+annotate' : ∀ {s u} → Star Instr s u → Handler s u → Star (Instr ×' Handler' u) s u
+annotate' ε        h = ε
+annotate' (i ◅ is) h = (i ,' h) ◅ annotate' is (step i h)
+
 annotate : ∀ {s t} → Star Instr s t → Star (Instr ×' Handler' t) s t
 annotate c = annotate' c Unhandled
-  where
-    annotate' : ∀ {s u} → Star Instr s u → Handler s u → Star (Instr ×' Handler' u) s u
-    annotate' ε        h = ε
-    annotate' (i ◅ is) h = (i ,' h) ◅ annotate' is (step i h)
+
+extractCode : ∀ {s t} → Star (Instr ×' Handler' t) s t → Star Instr s t
+extractCode ε               = ε
+extractCode ((i ,' h) ◅ is) = i ◅ extractCode is
+
+ann-lemma : ∀ {s t} h → (c : Code s t) → extractCode (annotate' c h) ≡ c
+ann-lemma _ ε = refl
+ann-lemma h (i ◅ is) rewrite ann-lemma (step i h) is = refl
+
+ann-extract : ∀ {s t} → (c : Code s t) → extractCode (annotate c) ≡ c
+ann-extract c = ann-lemma Unhandled c
+
+term : ∀ {s t} → (ann : Star (Instr ×' Handler' t) s t) → Term (extractCode ann)
+term ε = Now
+term ((UNMARK ,' Cong (Push x y)) ◅ is) = Handle (term (annotate {!h!})) (term is)
+term ((i      ,' h) ◅ is) = Later (term is)
 
