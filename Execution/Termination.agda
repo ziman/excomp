@@ -60,17 +60,53 @@ shift-revert-inv (THROW  ◅ is) st = cong (_◅_ THROW)    (shift-revert-inv is
 shift-revert-inv (MARK h ◅ is) st = cong (_◅_ (MARK h)) (shift-revert-inv is (shift h st ∷' st))
 shift-revert-inv (UNMARK ◅ is) (h ∷' st) = cong (_◅_ UNMARK) (shift-revert-inv is st)
 
-acc : ∀ {s t} → (c : Code' s t) → ∀ st → AccCode s t (revert c) st
-acc ε _ = trivial
-acc (ADD'      ◅ is) ✓[ x :: y :: st ] = step aiAdd     (acc is ✓[ (x + y) :: st ])
-acc (UNMARK' _ ◅ is) ✓[ x :: _ !! st ] = step aiUnmark✓ (acc is ✓[ x :: st ])
-acc (PUSH'   x ◅ is) ✓[           st ] = step aiPush    (acc is ✓[ x :: st ])
-acc (MARK'   h ◅ is) ✓[           st ] = step aiMark    (acc is ✓[ h !! st ])
-acc (ADD'      ◅ is) ![ n     , r    ] = step aiAdd     (acc is ![ n , r ])
-acc (PUSH'   x ◅ is) ![ n     , r    ] = step aiPush    (acc is ![ n , r ])
-acc (THROW'    ◅ is) ![ n     , r    ] = step aiThrow   (acc is ![ n , r ])
-acc (MARK'   h ◅ is) ![ n     , r    ] = step aiMark    (acc is ![ suc n , r ])
-acc (UNMARK' h ◅ is) ![ suc n , r    ] = step aiUnmark! (acc is ![ n , r ])
-acc (THROW'    ◅ is) ✓[           st ] = step aiThrow   (acc is ![ zero , unwindStack st zero ])
-acc (UNMARK' h ◅ is) ![ zero  , Okay h' st ] = step {!!} {!!}
+data Invariant : ∀ {s t} → Code' s t → State s → Set where
+  iAdd✓ : ∀ {s t is x y st}
+    → Invariant {Val Nat ∷ s} {t} is ✓[ (x + y) :: st ]
+    → Invariant (ADD' ◅ is) ✓[ x :: y :: st ]
+  iUnmark✓ : ∀ x h st is
+    → Invariant is ✓[ x :: st ]
+    → Invariant (UNMARK' h ◅ is) ✓[ x :: (revert h) !! st ]
+  iPush✓ : ∀ {x is st}
+    → Invariant is ✓[ x :: st ]
+    → Invariant (PUSH' x ◅ is) ✓[ st ]
+  iMark✓ : ∀ {h is st}
+    → Invariant is ✓[ h !! st ]
+    → Invariant (MARK' h ◅ is) ✓[ st ]
+  iAdd! : ∀ {is n r}
+    → Invariant is ![ n , r ]
+    → Invariant (ADD' ◅ is) ![ n , r ]
+  iPush! : ∀ {is x n r}
+    → Invariant is ![ n , r ]
+    → Invariant (PUSH' x ◅ is) ![ n , r ]
+  iThrow! : ∀ {is n r}
+    → Invariant is ![ n , r ]
+    → Invariant (THROW' ◅ is) ![ n , r ]
+  iMark! : ∀ {h is n r}
+    → Invariant is ![ suc n , r ]
+    → Invariant (MARK' h ◅ is) ![ n , r ]
+  iUnmark! : ∀ {h is n r}
+    → Invariant is ![ n , r ]
+    → Invariant (UNMARK' h ◅ is) ![ suc n , r ]
+  iThrow✓ : ∀ {is st}
+    → Invariant is ![ zero , unwindStack st zero ]
+    → Invariant (THROW' ◅ is) ✓[ st ]
+  iHandle : ∀ {h is st ac}
+    → Invariant is (execCode (revert h) ✓[ st ] ac)
+    → Invariant is ✓[ st ]
+    → Invariant (UNMARK' h ◅ is) ![ zero , Okay (revert h) st ]
+
+acc : ∀ {s t} → (c : Code' s t) → (st : State s) → Invariant c st → AccCode s t (revert c) st
+acc ε _ _ = trivial
+acc (ADD'      ◅ is) ✓[ x :: y :: st ] (iAdd✓    i) = step aiAdd     (acc is ✓[ (x + y) :: st ] i)
+acc .(UNMARK' h ◅ is) ✓[ .x :: .(revert h) !! .st ] (iUnmark✓ x h st is i) = step aiUnmark✓ (acc is ✓[ x :: st ] i)
+acc (PUSH'   x ◅ is) ✓[           st ] (iPush✓   i) = step aiPush    (acc is ✓[ x :: st ] i)
+acc (MARK'   h ◅ is) ✓[           st ] (iMark✓   i) = step aiMark    (acc is ✓[ h !! st ] i)
+acc (ADD'      ◅ is) ![ n     , r    ] (iAdd!    i) = step aiAdd     (acc is ![ n , r ] i)
+acc (PUSH'   x ◅ is) ![ n     , r    ] (iPush!   i) = step aiPush    (acc is ![ n , r ] i)
+acc (THROW'    ◅ is) ![ n     , r    ] (iThrow!  i) = step aiThrow   (acc is ![ n , r ] i)
+acc (MARK'   h ◅ is) ![ n     , r    ] (iMark!   i) = step aiMark    (acc is ![ suc n , r ] i)
+acc (UNMARK' h ◅ is) ![ suc n , r    ] (iUnmark! i) = step aiUnmark! (acc is ![ n , r ] i)
+acc (THROW'    ◅ is) ✓[           st ] (iThrow✓  i) = step aiThrow   (acc is ![ zero , unwindStack st zero ] i)
+acc (UNMARK' h ◅ is) ![ zero  , Okay h' st ] (iHandle i j) = step {!!} {!!}
 
