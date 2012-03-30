@@ -2,12 +2,14 @@ module Execution where
 
 open import Function
 open import Data.Nat
+open import Data.Nat.Properties
 open import Data.Sum
 open import Data.List
 open import Data.Star
 open import Data.Maybe
 open import Data.Product
 
+open import Algebra.Structures
 open import Relation.Binary.PropositionalEquality
 
 open import TypeUniverse
@@ -68,6 +70,30 @@ mutual
   measureState {s} ![ n , Okay h st ] | just u  = measureCode h
   measureState {s} ![ n , Fail      ] | nothing = 0
 
+unmarkLemma : ∀ s u (st : Stack s) (h : Code s (Val u ∷ s))
+  → measureInstr (UNMARK {u} {s}) + measureState {Val u ∷ Han u ∷ s} ![ zero , Okay h st ]
+    ≡ suc (measureCode h + measureState ✓[ st ])
+unmarkLemma s u st h = begin
+    measureInstr (UNMARK {u} {s}) + measureState {Val u ∷ Han u ∷ s} ![ zero , Okay h st ]
+      ≡⟨ refl ⟩
+    1 + measureCode h
+      ≡⟨ refl ⟩
+    suc (measureState ✓[ st ] + measureCode h)
+      ≡⟨ cong suc (comm zero _) ⟩
+    suc (measureCode h + measureState ✓[ st ])
+      ∎
+  where
+    open ≡-Reasoning
+    open IsCommutativeSemiring isCommutativeSemiring using (+-isCommutativeMonoid)
+    open IsCommutativeMonoid +-isCommutativeMonoid using (comm; assoc)
+
+suc=suc : ∀ {x} {y} → suc x ≡ suc y → x ≡ y
+suc=suc {x} .{x} refl = refl
+
+n=n+0 : ∀ {n} → n ≡ n + 0
+n=n+0 {zero } = refl
+n=n+0 {suc n} = cong suc n=n+0
+
 mutual
   -- Instruction execution
   execInstr : ∀ {s t}
@@ -90,7 +116,8 @@ mutual
   execInstr UNMARK   ![ suc n , r         ] _ _ = ![ n     , r ]
 
   -- Exception handling
-  execInstr UNMARK ![ zero , Okay h st ] m pf = execCode h ✓[ st ] {!!} {!!}
+  execInstr UNMARK ![ zero , Okay h st ] zero    ()
+  execInstr UNMARK ![ zero , Okay h st ] (suc m) pf = execCode h ✓[ st ] m (trans (suc=suc pf) n=n+0)
 
   -- Trivial exception processing: instruction skipping
   execInstr THROW    ![ n , r ] _ _ = ![ n , r ]
