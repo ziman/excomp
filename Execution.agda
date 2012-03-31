@@ -134,6 +134,16 @@ mutual
   ... | ()
   execInstr' i st (suc m) pf | no  p = execInstr' i st m (≤-≠ pf p)
 
+  execCode' : ∀ {s t}
+    → (c : Code s t) → (st : State s)
+    → (m : ℕ) → m ≥ measureCode c + measureState st
+    → State t
+  execCode' c st m pf with m ≟ measureCode c + measureState st
+  execCode' c st m       pf | yes p = execCode c st m p
+  execCode' c st zero    pf | no  p with p (≤-zero pf)
+  ... | ()
+  execCode' c st (suc m) pf | no  p = execCode' c st m (≤-≠ pf p)
+
   -- Code execution
   -- This is a left fold over instructions.
   execCode : ∀ {s t}
@@ -155,10 +165,5 @@ mutual
   codeCode : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ) (pf : m ≥ measureInstr i + measureState st)
     → suc m ≡ measureCode (i ◅ is) + measureState st
     → m ≥ measureCode is + measureState (execInstr' i st m pf)
-  codeCode i is st m pf geq = ?
+  codeCode i is st m pf geq = {!!}
 
-  execCode' : ∀ {s t}
-    → (c : Code s t) → (st : State s)
-    → (m : ℕ) → m ≥ measureCode c + measureState st
-    → State t
-  execCode' c st m pf = {!!}
