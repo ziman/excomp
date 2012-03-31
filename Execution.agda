@@ -142,14 +142,20 @@ mutual
     → State t
   execCode ε        st _ _  = st
   execCode (i ◅ is) st zero    ()
-  execCode (i ◅ is) st (suc m) pf = execCode is st' m {!!}
+  execCode (i ◅ is) st (suc m) pf = execCode' is st' m (codeCode i is st m pf' pf)
     where
-      st' = execInstr' i st m (codeInstr i is st m pf)
+      pf' = codeInstr i is st m pf
+      st' = execInstr' i st m pf'
 
   codeInstr : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ)
     → suc m ≡ measureCode (i ◅ is) + measureState st
     → m ≥ measureInstr i + measureState st
   codeInstr i is st m pf = {!!}
+
+  codeCode : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ) (pf : m ≥ measureInstr i + measureState st)
+    → suc m ≡ measureCode (i ◅ is) + measureState st
+    → m ≥ measureCode is + measureState (execInstr' i st m pf)
+  codeCode i is st m pf geq = ?
 
   execCode' : ∀ {s t}
     → (c : Code s t) → (st : State s)
