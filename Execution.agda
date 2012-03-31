@@ -1,6 +1,7 @@
 module Execution where
 
 open import Function
+open import Data.Empty
 open import Data.Nat
 open import Data.Nat.Properties
 open import Data.Sum
@@ -11,6 +12,8 @@ open import Data.Product
 
 open import Algebra.Structures
 open import Relation.Binary.PropositionalEquality
+open import Relation.Nullary
+open import Relation.Nullary.Decidable
 
 open import TypeUniverse
 open import Expression
@@ -62,37 +65,34 @@ mutual
 
   measureCode : ∀ {s t} → Code s t → ℕ
   measureCode ε        = 0
-  measureCode (i ◅ is) = measureInstr i + measureCode is
+  measureCode (i ◅ is) = 1 + measureInstr i + measureCode is
 
   measureState : ∀ {s} → State s → ℕ
-  measureState ✓[ st ] = 0
+  measureState ✓[ st ] = measureStack st
   measureState {s} ![ n , y ] with unwindHnd s n
-  measureState {s} ![ n , Okay h st ] | just u  = measureCode h
+  measureState {s} ![ n , Okay h st ] | just u  = measureCode h + measureStack st
   measureState {s} ![ n , Fail      ] | nothing = 0
 
-unmarkLemma : ∀ s u (st : Stack s) (h : Code s (Val u ∷ s))
-  → measureInstr (UNMARK {u} {s}) + measureState {Val u ∷ Han u ∷ s} ![ zero , Okay h st ]
-    ≡ suc (measureCode h + measureState ✓[ st ])
-unmarkLemma s u st h = begin
-    measureInstr (UNMARK {u} {s}) + measureState {Val u ∷ Han u ∷ s} ![ zero , Okay h st ]
-      ≡⟨ refl ⟩
-    1 + measureCode h
-      ≡⟨ refl ⟩
-    suc (measureState ✓[ st ] + measureCode h)
-      ≡⟨ cong suc (comm zero _) ⟩
-    suc (measureCode h + measureState ✓[ st ])
-      ∎
-  where
-    open ≡-Reasoning
-    open IsCommutativeSemiring isCommutativeSemiring using (+-isCommutativeMonoid)
-    open IsCommutativeMonoid +-isCommutativeMonoid using (comm; assoc)
+  measureStack : ∀ {s} → Stack s → ℕ
+  measureStack snil      = 0
+  measureStack (_ :: xs) = measureStack xs
+  measureStack (h !! xs) = measureCode h + measureStack xs
 
-suc=suc : ∀ {x} {y} → suc x ≡ suc y → x ≡ y
+suc=suc : ∀ {x y} → suc x ≡ suc y → x ≡ y
 suc=suc {x} .{x} refl = refl
 
-n=n+0 : ∀ {n} → n ≡ n + 0
-n=n+0 {zero } = refl
-n=n+0 {suc n} = cong suc n=n+0
+≥-≠ : ∀ {m n} → m ≥ n → ¬ (m ≡ n) → m ≥ suc n
+≥-≠ {zero}  z≤n m≠n = ⊥-elim (m≠n refl)
+≥-≠ {suc m} z≤n m≠n = s≤s z≤n
+≥-≠ {suc m} {suc n} (s≤s p) m≠n = s≤s (≥-≠ p (m≠n ∘ cong suc))
+
+≤-≠ : ∀ {m n} → m ≤ suc n → ¬ (suc n ≡ m) → m ≤ n
+≤-≠ z≤n       sm≠n = z≤n
+≤-≠ (s≤s m≤n) sm≠n = ≥-≠ m≤n (sm≠n ∘ cong suc)
+
+≤-zero : ∀ {n} → n ≤ zero → zero ≡ n
+≤-zero {zero } pf = refl
+≤-zero {suc n} ()
 
 mutual
   -- Instruction execution
@@ -117,12 +117,22 @@ mutual
 
   -- Exception handling
   execInstr UNMARK ![ zero , Okay h st ] zero    ()
-  execInstr UNMARK ![ zero , Okay h st ] (suc m) pf = execCode h ✓[ st ] m (trans (suc=suc pf) n=n+0)
+  execInstr UNMARK ![ zero , Okay h st ] (suc m) pf = execCode h ✓[ st ] m (suc=suc pf)
 
   -- Trivial exception processing: instruction skipping
   execInstr THROW    ![ n , r ] _ _ = ![ n , r ]
   execInstr ADD      ![ n , r ] _ _ = ![ n , r ]
   execInstr (PUSH _) ![ n , r ] _ _ = ![ n , r ]
+
+  execInstr' : ∀ {s t}
+    → (i : Instr s t) → (st : State s)
+    → (m : ℕ) → m ≥ measureInstr i + measureState st
+    → State t
+  execInstr' i st m pf with m ≟ measureInstr i + measureState st
+  execInstr' i st m       pf | yes p = execInstr i st m p
+  execInstr' i st zero    pf | no  p with p (≤-zero pf)
+  ... | ()
+  execInstr' i st (suc m) pf | no  p = execInstr' i st m (≤-≠ pf p)
 
   -- Code execution
   -- This is a left fold over instructions.
@@ -131,6 +141,18 @@ mutual
     → (m : ℕ) → m ≡ measureCode c + measureState st
     → State t
   execCode ε        st _ _  = st
-  execCode (i ◅ is) st m pf = execCode is (execInstr i st {!!} {!!}) {!!} {!!}
+  execCode (i ◅ is) st zero    ()
+  execCode (i ◅ is) st (suc m) pf = execCode is st' m {!!}
+    where
+      st' = execInstr' i st m (codeInstr i is st m pf)
 
+  codeInstr : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ)
+    → suc m ≡ measureCode (i ◅ is) + measureState st
+    → m ≥ measureInstr i + measureState st
+  codeInstr i is st m pf = {!!}
 
+  execCode' : ∀ {s t}
+    → (c : Code s t) → (st : State s)
+    → (m : ℕ) → m ≥ measureCode c + measureState st
+    → State t
+  execCode' c st m pf = {!!}
