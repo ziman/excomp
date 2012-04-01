@@ -11,6 +11,7 @@ open import Data.Maybe
 open import Data.Product
 
 open import Algebra.Structures
+open import Relation.Binary
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
@@ -94,6 +95,25 @@ suc=suc {x} .{x} refl = refl
 ≤-zero {zero } pf = refl
 ≤-zero {suc n} ()
 
+≤-refl : ∀ {m n} → m ≡ n → m ≤ n
+≤-refl {zero}  .{zero}  refl = z≤n
+≤-refl {suc n} .{suc n} refl = s≤s (≤-refl refl)
+
+m+n+k=m+k+n : ∀ {m n k} → m + n + k ≡ m + k + n
+m+n+k=m+k+n {m} {n} {k} = begin
+    m + n + k
+      ≡⟨ +-assoc m n k ⟩
+    m + (n + k)
+      ≡⟨ cong (λ x → m + x) (+-comm n k) ⟩
+    m + (k + n)
+      ≡⟨ sym (+-assoc m k n) ⟩
+    m + k + n
+      ∎
+  where
+    open ≡-Reasoning
+    open IsCommutativeSemiring Data.Nat.Properties.isCommutativeSemiring using (+-isCommutativeMonoid)
+    open IsCommutativeMonoid +-isCommutativeMonoid using () renaming (assoc to +-assoc; comm to +-comm)
+
 mutual
   -- Instruction execution
   execInstr : ∀ {s t}
@@ -160,10 +180,51 @@ mutual
   codeInstr : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ)
     → suc m ≡ measureCode (i ◅ is) + measureState st
     → m ≥ measureInstr i + measureState st
-  codeInstr i is st m pf = {!!}
+  codeInstr i is st m pf with ≤-refl (sym pf)
+  ... | s≤s le = begin
+      measureInstr i + measureState st
+        ≤⟨ m≤m+n _ _ ⟩
+      measureInstr i + measureState st + measureCode is      
+        ≡⟨ m+n+k=m+k+n {measureInstr i} {measureState st} {measureCode is} ⟩
+      measureInstr i + measureCode is + measureState st
+        ≤⟨ le ⟩
+      m ∎
+    where
+      open ≤-Reasoning
+
+  ≤-suc : ∀ {x} → x ≤ suc x
+  ≤-suc = ≤-step (≤-refl refl)
+
+  codeLemma : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ) (pf : m ≥ measureInstr i + measureState st)
+    → measureState (execInstr' i st m pf) ≤ measureInstr i + measureState st
+  codeLemma (PUSH y) is st m pf with m ≟ suc (measureState st)
+  codeLemma (PUSH y) is ✓[ st    ] m pf | yes  p = ≤-suc
+  codeLemma {s} (PUSH y) is ![ n , r ] m pf | yes p with unwindHnd s n 
+  ... | just u  = ≤-step (≤-refl {!refl!})
+  ... | nothing = {!!}
+  codeLemma (PUSH y) is ✓[ st    ] m pf | no  ¬p = {!!}
+  codeLemma (PUSH y) is ![ n , r ] m pf | no  ¬p = {!!}
+  codeLemma  ADD     is st m pf = {!!}
+  codeLemma (MARK y) is st m pf = {!!}
+  codeLemma  UNMARK  is st m pf = {!!}
+  codeLemma  THROW   is st m pf = {!!}
 
   codeCode : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ) (pf : m ≥ measureInstr i + measureState st)
     → suc m ≡ measureCode (i ◅ is) + measureState st
     → m ≥ measureCode is + measureState (execInstr' i st m pf)
-  codeCode i is st m pf geq = {!!}
+  codeCode i is st m pf geq with ≤-refl (sym geq)
+  ... | s≤s le = begin
+      measureCode is + measureState (execInstr' i st m pf)
+        ≤⟨ {!!} ⟩
+      measureCode is + (measureInstr i + measureState st)
+        ≡⟨ +-comm (measureCode is) _ ⟩
+      measureInstr i + measureState st + measureCode is
+        ≡⟨ m+n+k=m+k+n {measureInstr i} {measureState st} {measureCode is} ⟩
+      measureInstr i + measureCode is + measureState st
+        ≤⟨ le ⟩
+      m ∎
+    where
+      open ≤-Reasoning
+      open IsCommutativeSemiring Data.Nat.Properties.isCommutativeSemiring using (+-isCommutativeMonoid)
+      open IsCommutativeMonoid +-isCommutativeMonoid using () renaming (assoc to +-assoc; comm to +-comm)
 
