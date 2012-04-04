@@ -16,92 +16,70 @@ open import Expression
 open import Denotation
 open import Code
 open import Execution.Informative
+open import Execution.Utils
 
-mutual
-  data Instr' : Shape → Shape → Set where
-    ADD' : ∀ {s} → Instr' (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
-    PUSH' : ∀ {s u} → el u → Instr' s (Val u ∷ s)
-    THROW' : ∀ {s u} → Instr' s (Val u ∷ s)
-    MARK'  : ∀ {s u} → Code s (Val u ∷ s) → Instr' s (Han u ∷ s)
-    UNMARK' : ∀ {s u} → Code' s (Val u ∷ s) → Instr' (Val u ∷ Han u ∷ s) (Val u ∷ s)
+data Balanced : ∀ {s t} → ℕ → Code s t → Set where
+  bal-ε : ∀ {s} → Balanced {s} {s} zero ε
+  bal-Push : ∀ {s t u n} {x : el u} {c : Code (Val u ∷ s) t} → Balanced n c → Balanced n (PUSH x ◅ c)
+  bal-Add : ∀ {s t n} {c : Code (Val Nat ∷ s) t} → Balanced n c → Balanced n (ADD ◅ c)
+  bal-Throw : ∀ {s t u n} {c : Code (Val u ∷ s) t} → Balanced n c → Balanced n (THROW ◅ c)
+  bal-Mark : ∀ {s t u n} {c : Code (Han u ∷ s) t} {h : Code s (Val u ∷ s)}
+    → Balanced zero h
+    → Balanced (suc n) c
+    → Balanced n (MARK h ◅ c)
+  bal-Unmark : ∀ {s t u n} {c : Code (Val u ∷ s) t}
+    → Balanced n c
+    → Balanced (suc n) (UNMARK ◅ c)
 
-  Code' : Shape → Shape → Set
-  Code' = Star Instr'
+Closed : ∀ {s t} → Code s t → Set
+Closed {s} {t} c = Balanced zero c
 
-data HndStack : List (U × Shape) → Set where
-  []' : HndStack []
-  _∷'_ : ∀ {u s sh} → Code' s (Val u ∷ s) → HndStack sh → HndStack ((u , s) ∷ sh)
+BalancedCode : ℕ → Shape → Shape → Set
+BalancedCode n s t = Σ[ c ∶ Code s t ] Balanced n c
 
-handlers : Shape → List (U × Shape)
-handlers []          = []
-handlers (Val _ ∷ s) = handlers s
-handlers (Han u ∷ s) = (u , s) ∷ handlers s
+ClosedCode : Shape → Shape → Set
+ClosedCode s t = BalancedCode zero s t
 
-shift : ∀ {s t} → Code s t → HndStack (handlers s) → Code' s t
-shift ε             st = ε
-shift (PUSH x ◅ is) st = PUSH' x ◅ shift is st
-shift (ADD    ◅ is) st = ADD'    ◅ shift is st
-shift (THROW  ◅ is) st = THROW'  ◅ shift is st
-shift (MARK h ◅ is) st = MARK' h ◅ shift is (shift h st ∷' st)
-shift (UNMARK ◅ is) (h ∷' st) = UNMARK' h ◅ shift is st
+data Fork : (s t : Shape) → Set where
+  Push : ∀ {u s} → Fork s (Val u ∷ s)
+  Add : ∀ {s} → Fork (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
+  Branch : ∀ {u s} → Star Fork (Han u ∷ s) (Val u ∷ Han u ∷ s) → Star Fork s (Val u ∷ s) → Fork s (Val u ∷ s)
 
-revert : ∀ {s t} → Code' s t → Code s t
-revert ε = ε
-revert (ADD'    ◅ is) = ADD    ◅ revert is
-revert (PUSH' x ◅ is) = PUSH x ◅ revert is
-revert (THROW'  ◅ is) = THROW  ◅ revert is
-revert (MARK' h ◅ is) = MARK h ◅ revert is
-revert (UNMARK' _ ◅ is) = UNMARK ◅ revert is
+Forks : Shape → Shape → Set
+Forks = Star Fork
 
-shift-revert-inv : ∀ {s t} (c : Code s t) (st : HndStack (handlers s)) → revert (shift c st) ≡ c
-shift-revert-inv ε        st = refl
-shift-revert-inv (PUSH x ◅ is) st = cong (_◅_ (PUSH x)) (shift-revert-inv is st)
-shift-revert-inv (ADD    ◅ is) st = cong (_◅_ ADD)      (shift-revert-inv is st)
-shift-revert-inv (THROW  ◅ is) st = cong (_◅_ THROW)    (shift-revert-inv is st)
-shift-revert-inv (MARK h ◅ is) st = cong (_◅_ (MARK h)) (shift-revert-inv is (shift h st ∷' st))
-shift-revert-inv (UNMARK ◅ is) (h ∷' st) = cong (_◅_ UNMARK) (shift-revert-inv is st)
+record Decomposition {s t : Shape} (n : ℕ) (c : Code s t) : Set where
+  constructor Dec
+  field
+    u : U
+    uw=u : unwindHnd s n ≡ just u
+    main : BalancedCode n s (Val u ∷ Han u ∷ unwindShape s n)
+    rest : ClosedCode (Val u ∷ unwindShape s n) t
 
-Invariant : ∀ {s t} → (c : Code' s t) → (st : State s) → Set
-Invariant ε _ = ⊤
-Invariant (ADD'      ◅ is) ✓[ x :: y :: st ] = Invariant is ✓[ (x + y) :: st ]
-Invariant (UNMARK' h ◅ is) ✓[ x :: _ !! st ] = Invariant is ✓[ x :: st ]
-Invariant (PUSH'   x ◅ is) ✓[ st ] = Invariant is ✓[ x :: st ]
-Invariant (MARK'   h ◅ is) ✓[ st ] = Invariant is ✓[ h !! st ]
-Invariant (THROW'    ◅ is) ✓[ st ] = Invariant is ![ zero , unwindStack st zero ]
-Invariant (ADD'      ◅ is) ![ n , r ] = Invariant is ![ n , r ]
-Invariant (PUSH'   _ ◅ is) ![ n , r ] = Invariant is ![ n , r ]
-Invariant (THROW'    ◅ is) ![ n , r ] = Invariant is ![ n , r ]
-Invariant (MARK'   h ◅ is) ![ n , r ] = Invariant is ![ suc n , r ]
-Invariant (UNMARK' _ ◅ is) ![ suc n , r ] = Invariant is ![ n , r ]
-Invariant (UNMARK' h ◅ is) ![ zero , Okay g st ]
-  = ∃ λ ac → (revert h ≡ g) × (Invariant h ✓[ st ]) × (Invariant is (execCode (revert h) ✓[ st ] ac))
+decompose : ∀ {s t n} (c : Code s t) → Balanced (suc n) c → Decomposition n c
+decompose {s} {t} {n} .(PUSH x ◅ c) (bal-Push {.s} {.t} {u} {.(suc n)} {x} {c} pf)
+  with decompose c pf
+... | Dec v p (m , mc) r = Dec v p (PUSH x ◅ m , bal-Push mc) r
+decompose .{Val Nat ∷ Val Nat ∷ s} {t} {n} .(ADD ◅ c) (bal-Add {s} {.t} {.(suc n)} {c} pf)
+  with decompose c pf
+... | Dec v p (m , mc) r = Dec v p (ADD ◅ m , bal-Add mc) r
+decompose {s} {t} {n} .(THROW ◅ c) (bal-Throw {.s} {.t} {u} {.(suc n)} {c} pf)
+  with decompose c pf
+... | Dec v p (m , mc) r = Dec v p (THROW ◅ m , bal-Throw mc) r
+decompose {s} {t} {n} .(MARK h ◅ c) (bal-Mark {.s} {.t} {u} {.(suc n)} {c} {h} hc pf)
+  with decompose c pf
+... | Dec v p (m , mc) r = Dec v p (MARK h ◅ m , bal-Mark hc mc) r
+decompose {.(Val u ∷ Han u ∷ s)} {t} {suc n} .(UNMARK ◅ c) (bal-Unmark {s} {.t} {u} {.(suc n)} {c} pf)
+  with decompose c pf
+... | Dec v p (m , mc) r = Dec v p ((UNMARK ◅ m) , (bal-Unmark mc)) r
+decompose {.(Val u ∷ Han u ∷ s)} {t} {zero} .(UNMARK ◅ c) (bal-Unmark {s} {.t} {u} {.0} {c} pf)
+  = Dec u refl (ε , bal-ε) (c , pf)
 
-acc : ∀ {s t} → (c : Code' s t) → (st : State s) → Invariant c st → AccCode s t (revert c) st
-acc ε _ _ = trivial
-acc (ADD'      ◅ is) ✓[ x :: y :: st ] inv = step aiAdd     (acc is ✓[ (x + y) :: st ] inv)
-acc (UNMARK' h ◅ is) ✓[ x :: _ !! st ] inv = step aiUnmark✓ (acc is ✓[ x :: st ] inv)
-acc (PUSH'   x ◅ is) ✓[           st ] inv = step aiPush    (acc is ✓[ x :: st ] inv)
-acc (MARK'   h ◅ is) ✓[           st ] inv = step aiMark    (acc is ✓[ h !! st ] inv)
-acc (ADD'      ◅ is) ![ n     , r    ] inv = step aiAdd     (acc is ![ n , r ] inv)
-acc (PUSH'   x ◅ is) ![ n     , r    ] inv = step aiPush    (acc is ![ n , r ] inv)
-acc (THROW'    ◅ is) ![ n     , r    ] inv = step aiThrow   (acc is ![ n , r ] inv)
-acc (MARK'   h ◅ is) ![ n     , r    ] inv = step aiMark    (acc is ![ suc n , r ] inv)
-acc (UNMARK' h ◅ is) ![ suc n , r    ] inv = step aiUnmark! (acc is ![ n , r ] inv)
-acc (THROW'    ◅ is) ✓[           st ] inv = step aiThrow   (acc is ![ zero , unwindStack st zero ] inv)
-acc (UNMARK' h ◅ is) ![ zero  , Okay h' st ] (ac , rh=g , invh , invis) rewrite rh=g
-    = step (aiHandle ac) (acc is (execCode h' ✓[ st ] ac) invis)
-
-inv : ∀ {s t} → (c : Code' s t) → (st : State s) → Invariant c st
-inv ε        st = tt
-inv (ADD'      ◅ is) ✓[ x :: y :: st ] = inv is ✓[ (x + y) :: st ]
-inv (ADD'      ◅ is) ![ n , r ] = inv is ![ n , r ]
-inv (PUSH'   x ◅ is) ✓[ st ] = inv is ✓[ x :: st ]
-inv (PUSH'   x ◅ is) ![ n , r ] = inv is ![ n , r ]
-inv (THROW'    ◅ is) ✓[ st ] = inv is ![ zero , unwindStack st zero ]
-inv (THROW'    ◅ is) ![ n , r ] = inv is ![ n , r ]
-inv (MARK'   h ◅ is) ✓[ st ] = inv is ✓[ h !! st ]
-inv (MARK'   h ◅ is) ![ n , r ] = inv is ![ suc n , r ]
-inv (UNMARK' h ◅ is) ✓[ x :: g !! st ] = inv is ✓[ x :: st ]
-inv (UNMARK' h ◅ is) ![ suc n , r ] = inv is ![ n , r ]
-inv (UNMARK' h ◅ is) ![ zero , Okay g st ] = acc h ✓[ st ] (inv h ✓[ st ]) , {!!} , {!!} , {!!}
-
+rehash : ∀ {s t} → (c : Code s t) → (pf : Closed c) → Forks s t
+rehash ε pf = ε
+rehash (PUSH x ◅ xs) (bal-Push  pf) = Push ◅ rehash xs pf
+rehash (ADD    ◅ xs) (bal-Add   pf) = Add  ◅ rehash xs pf
+rehash (THROW  ◅ xs) (bal-Throw pf) = Push ◅ rehash xs pf
+rehash (MARK h ◅ xs) (bal-Mark hClosed pf) with decompose xs pf
+... | Dec u refl (m , mClosed) (r , rClosed) = Branch (rehash m mClosed) (rehash h hClosed) ◅ rehash r rClosed
+rehash (UNMARK ◅ xs) ()
