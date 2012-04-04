@@ -198,13 +198,24 @@ mutual
   codeLemma : ∀ {s t u} (i : Instr s t) (is : Code t u) (st : State s) (m : ℕ) (pf : m ≥ measureInstr i + measureState st)
     → measureState (execInstr' i st m pf) ≤ measureInstr i + measureState st
   codeLemma (PUSH y) is st m pf with m ≟ suc (measureState st)
-  codeLemma (PUSH y) is ✓[ st    ] m pf | yes  p = ≤-suc
+  codeLemma (PUSH y) is ✓[ st ] m pf | yes  p = ≤-suc
   codeLemma {s} (PUSH y) is ![ n , r ] m pf | yes p with unwindHnd s n 
-  ... | just u  = ≤-step (≤-refl {!refl!})
-  ... | nothing = {!!}
-  codeLemma (PUSH y) is ✓[ st    ] m pf | no  ¬p = {!!}
-  codeLemma (PUSH y) is ![ n , r ] m pf | no  ¬p = {!!}
-  codeLemma  ADD     is st m pf = {!!}
+  codeLemma (PUSH y) is ![ n , Okay h st ] m pf | yes p | just u = ≤-suc
+  codeLemma (PUSH y) is ![ n , Fail      ] m pf | yes p | nothing = ≤-suc
+  codeLemma (PUSH y) is st (suc m) pf | no ¬p = codeLemma (PUSH y) is st m (≤-≠ pf ¬p)
+  codeLemma (PUSH y) is _ zero () | _
+  codeLemma ADD     is st m pf with m ≟ suc (measureState st)
+  codeLemma ADD is ✓[ st ] m pf | yes p = {!!}
+  codeLemma ADD is ![ n , r ] m pf | yes p = {!!}
+  codeLemma ADD is st m pf | no  ¬p = {!!}
+{-
+  codeLemma ADD is ✓[ st ] m pf | yes p = ≤-suc
+  codeLemma {s} ADD is ![ n , r ] m pf | yes p with unwindHnd s n
+  codeLemma ADD is ![ n , Okay h st ] m pf | yes p | just u  = ≤-suc
+  codeLemma ADD is ![ n , Fail      ] m pf | yes p | nothing = ≤-suc
+  codeLemma ADD is st (suc m) pf | no ¬p = codeLemma ADD is st m (≤-≠ pf ¬p)
+  codeLemma ADD is _ zero () | _
+-}
   codeLemma (MARK y) is st m pf = {!!}
   codeLemma  UNMARK  is st m pf = {!!}
   codeLemma  THROW   is st m pf = {!!}
