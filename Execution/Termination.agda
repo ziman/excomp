@@ -84,6 +84,10 @@ decompose {.(Val u ∷ Han u ∷ s)} {t} {zero} .(UNMARK ◅ c) (bal-Unmark {s} 
   where
     open ≤-Reasoning
 
+infixl 1 _≤≤_
+_≤≤_ : ∀ {m n o} → m ≤ n → n ≤ o → m ≤ o
+_≤≤_ x y = ≤-trans x y 
+
 ≤-refl : ∀ {n} → n ≤ n
 ≤-refl {zero } = z≤n
 ≤-refl {suc n} = s≤s ≤-refl
@@ -101,24 +105,24 @@ size (UNMARK ◅ is) = 1 + size is
 size (THROW  ◅ is) = 1 + size is
 
 dec-size₁ : ∀ {s t n} (c : Code s t) (pf : Balanced (suc n) c)
-  → suc (size (proj₁ (Decomposition.main (decompose c pf)))) ≤ size c
+  → size (proj₁ (Decomposition.main (decompose c pf))) ≤ size c
 dec-size₁ ε ()
 dec-size₁ (PUSH x ◅ is) (bal-Push pf) = s≤s (dec-size₁ is pf)
 dec-size₁ (ADD    ◅ is) (bal-Add  pf) = s≤s (dec-size₁ is pf)
 dec-size₁ (THROW  ◅ is) (bal-Throw pf) = s≤s (dec-size₁ is pf)
-dec-size₁ (MARK h ◅ is) (bal-Mark hc pf) = s≤s {!!} -- s≤s (≤-plus (size h) (dec-size₁ is pf))
+dec-size₁ (MARK h ◅ is) (bal-Mark hc pf) = s≤s (≤-plus (size h) (dec-size₁ is pf))
 dec-size₁ {Val u ∷ Han .u ∷ s} {t} {suc n} (UNMARK ◅ is) (bal-Unmark pf) = s≤s (dec-size₁ is pf)
-dec-size₁ {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = s≤s z≤n
+dec-size₁ {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = z≤n
 
 dec-size₂ : ∀ {s t n} (c : Code s t) (pf : Balanced (suc n) c)
-  → suc (size (proj₁ (Decomposition.rest (decompose c pf)))) ≤ size c
+  → size (proj₁ (Decomposition.rest (decompose c pf))) ≤ size c
 dec-size₂ ε ()
 dec-size₂ (PUSH x ◅ is) (bal-Push pf) = ≤-step (dec-size₂ is pf)
 dec-size₂ (ADD    ◅ is) (bal-Add  pf) = ≤-step (dec-size₂ is pf)
 dec-size₂ (THROW  ◅ is) (bal-Throw pf) = ≤-step (dec-size₂ is pf)
 dec-size₂ (MARK h ◅ is) (bal-Mark hc pf) = ≤-step (≤-trans (dec-size₂ is pf) (n≤m+n (size h) (size is)))
 dec-size₂ {Val u ∷ Han .u ∷ s} {t} {suc n} (UNMARK ◅ is) (bal-Unmark pf) = ≤-step (dec-size₂ is pf)
-dec-size₂ {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = ≤-refl
+dec-size₂ {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = ≤-step ≤-refl
 
 rehash : ∀ {s t} → (c : Code s t) → (pf : Closed c) → (m : ℕ) → (m ≥ size c) → Forks s t
 rehash ε _ _ _ = ε
@@ -130,9 +134,9 @@ rehash (MARK _ ◅ _) _ zero ()
 rehash (PUSH x ◅ xs) (bal-Push  pf) (suc m) (s≤s p) = Push ◅ rehash xs pf m p
 rehash (ADD    ◅ xs) (bal-Add   pf) (suc m) (s≤s p) = Add  ◅ rehash xs pf m p
 rehash (THROW  ◅ xs) (bal-Throw pf) (suc m) (s≤s p) = Push ◅ rehash xs pf m p
-rehash (MARK h ◅ xs) (bal-Mark hClosed pf) (suc n) (s≤s p) with decompose xs pf
-... | Dec u refl (m , mClosed) (r , rClosed) =
+rehash (MARK h ◅ xs) (bal-Mark hClosed pf) (suc n) (s≤s p) with decompose xs pf | dec-size₁ xs pf | dec-size₂ xs pf
+... | Dec u refl (m , mClosed) (r , rClosed) | pf₁ | pf₂ =
   Branch
-    (rehash m mClosed n {!≤-trans (dec-size₁ xs pf) (n≤m+n (size h) (size xs))!})
+    (rehash m mClosed n (pf₁ ≤≤ n≤m+n (size h) (size xs) ≤≤ p))
     (rehash h hClosed n (≤-trans (m≤m+n (size h) (size xs)) p))
-  ◅ rehash r rClosed n {!≤-trans (dec-size₂ xs pf) (n≤m+n (size h) (size xs))!}
+  ◅ rehash r rClosed n (pf₂ ≤≤ n≤m+n (size h) (size xs) ≤≤ p)
