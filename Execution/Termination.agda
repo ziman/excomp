@@ -2,13 +2,17 @@ module Execution.Termination where
 
 open import Function
 open import Data.Nat
+open import Data.Nat.Properties
 open import Data.Sum
 open import Data.List
 open import Data.Star
-open import Data.Unit
+open import Data.Unit hiding (_≤_)
 open import Data.Maybe
 open import Data.Product
 
+open import Algebra
+open import Algebra.Structures
+open import Relation.Binary
 open import Relation.Binary.PropositionalEquality
 
 open import TypeUniverse
@@ -75,11 +79,60 @@ decompose {.(Val u ∷ Han u ∷ s)} {t} {suc n} .(UNMARK ◅ c) (bal-Unmark {s}
 decompose {.(Val u ∷ Han u ∷ s)} {t} {zero} .(UNMARK ◅ c) (bal-Unmark {s} {.t} {u} {.0} {c} pf)
   = Dec u refl (ε , bal-ε) (c , pf)
 
-rehash : ∀ {s t} → (c : Code s t) → (pf : Closed c) → Forks s t
-rehash ε pf = ε
-rehash (PUSH x ◅ xs) (bal-Push  pf) = Push ◅ rehash xs pf
-rehash (ADD    ◅ xs) (bal-Add   pf) = Add  ◅ rehash xs pf
-rehash (THROW  ◅ xs) (bal-Throw pf) = Push ◅ rehash xs pf
-rehash (MARK h ◅ xs) (bal-Mark hClosed pf) with decompose xs pf
-... | Dec u refl (m , mClosed) (r , rClosed) = Branch (rehash m mClosed) (rehash h hClosed) ◅ rehash r rClosed
-rehash (UNMARK ◅ xs) ()
+≤-trans : ∀ {m n o} → m ≤ n → n ≤ o → m ≤ o
+≤-trans {m} {n} {o} p q = begin m ≤⟨ p ⟩ n ≤⟨ q ⟩ o ∎
+  where
+    open ≤-Reasoning
+
+≤-refl : ∀ {n} → n ≤ n
+≤-refl {zero } = z≤n
+≤-refl {suc n} = s≤s ≤-refl
+
+≤-plus : ∀ {m n} o → m ≤ n → o + m ≤ o + n
+≤-plus {m} {n} zero    p = p
+≤-plus {m} {n} (suc o) p = s≤s (≤-plus o p)
+
+size : ∀ {s t} → Code s t → ℕ
+size ε        = zero
+size (PUSH _ ◅ is) = 1 + size is
+size (ADD    ◅ is) = 1 + size is
+size (MARK h ◅ is) = 1 + size h + size is
+size (UNMARK ◅ is) = 1 + size is
+size (THROW  ◅ is) = 1 + size is
+
+dec-size₁ : ∀ {s t n} (c : Code s t) (pf : Balanced (suc n) c)
+  → suc (size (proj₁ (Decomposition.main (decompose c pf)))) ≤ size c
+dec-size₁ ε ()
+dec-size₁ (PUSH x ◅ is) (bal-Push pf) = s≤s (dec-size₁ is pf)
+dec-size₁ (ADD    ◅ is) (bal-Add  pf) = s≤s (dec-size₁ is pf)
+dec-size₁ (THROW  ◅ is) (bal-Throw pf) = s≤s (dec-size₁ is pf)
+dec-size₁ (MARK h ◅ is) (bal-Mark hc pf) = s≤s {!!} -- s≤s (≤-plus (size h) (dec-size₁ is pf))
+dec-size₁ {Val u ∷ Han .u ∷ s} {t} {suc n} (UNMARK ◅ is) (bal-Unmark pf) = s≤s (dec-size₁ is pf)
+dec-size₁ {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = s≤s z≤n
+
+dec-size₂ : ∀ {s t n} (c : Code s t) (pf : Balanced (suc n) c)
+  → suc (size (proj₁ (Decomposition.rest (decompose c pf)))) ≤ size c
+dec-size₂ ε ()
+dec-size₂ (PUSH x ◅ is) (bal-Push pf) = ≤-step (dec-size₂ is pf)
+dec-size₂ (ADD    ◅ is) (bal-Add  pf) = ≤-step (dec-size₂ is pf)
+dec-size₂ (THROW  ◅ is) (bal-Throw pf) = ≤-step (dec-size₂ is pf)
+dec-size₂ (MARK h ◅ is) (bal-Mark hc pf) = ≤-step (≤-trans (dec-size₂ is pf) (n≤m+n (size h) (size is)))
+dec-size₂ {Val u ∷ Han .u ∷ s} {t} {suc n} (UNMARK ◅ is) (bal-Unmark pf) = ≤-step (dec-size₂ is pf)
+dec-size₂ {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = ≤-refl
+
+rehash : ∀ {s t} → (c : Code s t) → (pf : Closed c) → (m : ℕ) → (m ≥ size c) → Forks s t
+rehash ε _ _ _ = ε
+rehash (UNMARK ◅ xs) () _ _
+rehash (PUSH _ ◅ _) _ zero ()
+rehash (ADD    ◅ _) _ zero ()
+rehash (THROW  ◅ _) _ zero ()
+rehash (MARK _ ◅ _) _ zero ()
+rehash (PUSH x ◅ xs) (bal-Push  pf) (suc m) (s≤s p) = Push ◅ rehash xs pf m p
+rehash (ADD    ◅ xs) (bal-Add   pf) (suc m) (s≤s p) = Add  ◅ rehash xs pf m p
+rehash (THROW  ◅ xs) (bal-Throw pf) (suc m) (s≤s p) = Push ◅ rehash xs pf m p
+rehash (MARK h ◅ xs) (bal-Mark hClosed pf) (suc n) (s≤s p) with decompose xs pf
+... | Dec u refl (m , mClosed) (r , rClosed) =
+  Branch
+    (rehash m mClosed n {!≤-trans (dec-size₁ xs pf) (n≤m+n (size h) (size xs))!})
+    (rehash h hClosed n (≤-trans (m≤m+n (size h) (size xs)) p))
+  ◅ rehash r rClosed n {!≤-trans (dec-size₂ xs pf) (n≤m+n (size h) (size xs))!}
