@@ -128,11 +128,12 @@ dec-comp : ∀  {s t n} (c : Code s t) (pf : Balanced (suc n) c)
   → let dec = decompose c pf in
         proj₁ (Decomposition.main dec) ◅◅ UNMARK ◅ proj₁ (Decomposition.rest dec) ≡ c
 dec-comp ε ()
-dec-comp (PUSH y ◅ is) pf = ?
-dec-comp (ADD ◅ is) pf = ?
-dec-comp (MARK y ◅ is) pf = ?
-dec-comp (UNMARK ◅ is) pf = ?
-dec-comp (THROW ◅ is) pf = ?
+dec-comp (PUSH x ◅ is) (bal-Push    pf) rewrite dec-comp is pf = refl
+dec-comp (ADD    ◅ is) (bal-Add     pf) rewrite dec-comp is pf = refl
+dec-comp (MARK h ◅ is) (bal-Mark hc pf) rewrite dec-comp is pf = refl
+dec-comp (THROW  ◅ is) (bal-Throw   pf) rewrite dec-comp is pf = refl
+dec-comp {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = refl
+dec-comp {Val u ∷ Han .u ∷ s} {t} {suc n} (UNMARK ◅ is) (bal-Unmark pf) rewrite dec-comp is pf = refl
 
 rehash : ∀ {s t} → (c : Code s t) → (pf : Closed c) → (m : ℕ) → (m ≥ size c) → Forks c
 rehash ε _ _ _ = Nil
@@ -144,14 +145,15 @@ rehash (MARK _ ◅ _) _ zero ()
 rehash (PUSH x ◅ xs) (bal-Push  pf) (suc m) (s≤s p) = Push  (rehash xs pf m p)
 rehash (ADD    ◅ xs) (bal-Add   pf) (suc m) (s≤s p) = Add   (rehash xs pf m p)
 rehash (THROW  ◅ xs) (bal-Throw pf) (suc m) (s≤s p) = Throw (rehash xs pf m p)
-rehash (MARK h ◅ xs) (bal-Mark hClosed pf) (suc n) (s≤s p) with decompose xs pf | dec-size₁ xs pf | dec-size₂ xs pf
-... | Dec u refl (m , mClosed) (r , rClosed) | pf₁ | pf₂ = {!!}
-{-
-  Branch
+rehash (MARK h ◅ xs) (bal-Mark hClosed pf) (suc n) (s≤s p)
+  with decompose xs pf | dec-size₁ xs pf | dec-size₂ xs pf | dec-comp xs pf
+... | Dec u refl (m , mClosed) (r , rClosed) | pf₁ | pf₂ | pf₃ = subst (λ x → Forks (MARK h ◅ x)) pf₃
+  (Branch
     (rehash m mClosed n (pf₁ ≤≤ n≤m+n (size h) (size xs) ≤≤ p))
     (rehash h hClosed n (m≤m+n (size h) (size xs) ≤≤ p))
     (rehash r rClosed n (pf₂ ≤≤ n≤m+n (size h) (size xs) ≤≤ p))
--}
+  )
+
 {-
 term' : ∀ {s t st} → (c : Code s t) → Closed c → Forks s t → AccCode s t c st
 term' c pf f = {!!}
