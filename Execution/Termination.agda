@@ -23,42 +23,67 @@ open import Execution.Informative
 open import Execution.Utils
 open import Execution.Forks
 
-acc-app : ∀ s t u (c : Code s t) (d : Code t u)
-  → (∀ st → AccCode s t c st)
-  → (∀ st → AccCode t u d st)
-  → ∀ st → AccCode s u (c ◅◅ d) st
-acc-app s t u c d ac ad st with ac st
-acc-app s .s u .ε d ac ad st | trivial = ad st
-acc-app .(Val Nat ∷ Val Nat ∷ s) t u .(ADD ◅ is) d ac ad st
-  | step {.(Val Nat ∷ Val Nat ∷ s)} {.(Val Nat ∷ s)} {.t} {.ADD} {is} (aiAdd {s}) y
-  with acc-app (Val Nat ∷ s) t u is d y ad
-... | qqq = {!!}
-acc-app s t u' .(PUSH x ◅ is) d ac ad st
-  | step {.s} {.(Val u ∷ s)} {.t} {.(PUSH x)} {is} (aiPush {.s} {u} {x}) y
-  = {!!}
-acc-app s t u' .(THROW ◅ is) d ac ad st
-  | step {.s} {.(Val u ∷ s)} {.t} {.THROW} {is} (aiThrow {._} {u}) y
-  = {!!}
-acc-app s t u' .(MARK h ◅ is) d ac ad st
-  | step {.s} {.(Han u ∷ s)} {.t} {.(MARK h)} {is} (aiMark {.s} {u} {.st} {h}) y
-  = {!!}
-acc-app .(Val u ∷ Han u ∷ s) t u' .(UNMARK ◅ is) d ac ad .(✓[ st ])
-  | step {.(Val u ∷ Han u ∷ s)} {.(Val u ∷ s)} {.t} {.UNMARK} {is} (aiUnmark✓ {s} {u} {st}) y
-  = {!!}
-acc-app .(Val u ∷ Han u ∷ s) t u' .(UNMARK ◅ is) d ac ad .(![ suc n , r ])
-  | step {.(Val u ∷ Han u ∷ s)} {.(Val u ∷ s)} {.t} {.UNMARK} {is} (aiUnmark! {s} {u} {n} {r}) y
-  = {!!}
-acc-app .(Val u ∷ Han u ∷ s) t u' .(UNMARK ◅ is) d ac ad .(![ 0 , Okay h st ])
-  | step {.(Val u ∷ Han u ∷ s)} {.(Val u ∷ s)} {.t} {.UNMARK} {is} (aiHandle {s} {u} {h} {st} y) y'
-  = {!!}
+unfork : ∀ {s t} {c : Code s t} → Forks c → Code s t
+unfork Nil            = ε
+unfork (Throw      f) = THROW ◅ unfork f
+unfork (Add        f) = ADD   ◅ unfork f
+unfork (Branch r h f) = MARK (unfork h) ◅ unfork r ◅◅ UNMARK ◅ unfork f
+unfork {c = PUSH x ◅ _} (Push  f) = PUSH x ◅ unfork f
 
-term' : ∀ {s t} {c : Code s t} → Forks c → ∀ {st} → AccCode s t c st
-term' Nil = trivial
-term' (Push  f) = step aiPush (term' f)
-term' (Throw f) = step aiThrow (term' f)
-term' (Add   f) = step aiAdd (term' f)
-term' (Branch r h f) = {!!}
+unfork-inv : ∀ {s t} (c : Code s t) → (pf : Closed c) → c ≡ unfork (fork c pf)
+unfork-inv ε pf = refl
+unfork-inv (UNMARK ◅ is) ()
+unfork-inv (PUSH x ◅ is) (bal-Push  r) = cong (λ y → PUSH x ◅ y) (unfork-inv is r)
+unfork-inv (THROW  ◅ is) (bal-Throw r) = cong (λ y → THROW  ◅ y) (unfork-inv is r)
+unfork-inv (ADD    ◅ is) (bal-Add   r) = cong (λ y → ADD    ◅ y) (unfork-inv is r)
+unfork-inv (MARK h ◅ is) (bal-Mark hr r) with decompose is r | dec-size₁ is r | dec-size₂ is r | dec-comp is r
+unfork-inv (MARK h ◅ .(proj₁ main ◅◅ UNMARK ◅ proj₁ rest)) (bal-Mark hr r) | Dec u' refl main rest | pf₁ | pf₂ | refl
+  rewrite unfork-inv h hr = {!!}
 
+{-
+Acc : ∀ {s t} → Code s t → Set
+Acc c = ∀ st → AccCode _ _ c st
+
+acc-cons : ∀ {s t u} (i : Instr s t) (is : Code t u)
+  → AccCode (i ◅ is) → AccCode is
+acc-cons (PUSH x) is acc st with acc (execInstr (PUSH x) st aiPush)
+... | z = ?
+acc-cons (PUSH x) is acc ![ n , r ] = {!!}
+acc-cons  ADD     is acc st = {!!}
+acc-cons (MARK h) is acc st = {!!}
+acc-cons  UNMARK  is acc st = {!!}
+acc-cons  THROW   is acc st = {!!}
+-}
+{-
+acc-app : ∀ {s t v u st} (c : Code s (Val v ∷ Han v ∷ t)) (d : Code (Val v ∷ t) u)
+  → AccCode _ _ c st → (∀ st' → AccCode _ _ d st') → AccCode _ _ (c ◅◅ UNMARK ◅ d) st
+acc-app {.(Val v ∷ Han v ∷ t)} {t} {v} {u} { ✓[ x :: h !! st ] } ε d ac ad = step aiUnmark✓ (ad ✓[ x :: st ])
+acc-app {.(Val v ∷ Han v ∷ t)} {t} {v} {u} { ![ suc n , r ] } ε d ac ad = step aiUnmark! (ad ![ n , r ])
+acc-app {Val v ∷ Han .v ∷ t} .{t} .{v} {u} { ![ zero , Okay .{v} h st ] } ε d ac ad = step (aiHandle {!!}) (ad _)
+acc-app (PUSH x ◅ is) d (step aiPush  y) ad = step aiPush (acc-app is d y ad)
+acc-app (ADD    ◅ is) d (step aiAdd   y) ad = step aiAdd (acc-app is d y ad)
+acc-app (MARK h ◅ is) d (step aiMark  y) ad = step aiMark (acc-app is d y ad)
+acc-app (THROW  ◅ is) d (step aiThrow y) ad = step aiThrow (acc-app is d y ad)
+acc-app (UNMARK ◅ is) d (step aiUnmark✓ y) ad = step aiUnmark✓ (acc-app is d y ad)
+acc-app (UNMARK ◅ is) d (step aiUnmark! y) ad = step aiUnmark! (acc-app is d y ad)
+acc-app (UNMARK ◅ is) d (step (aiHandle hc) y) ad = step (aiHandle hc) (acc-app is d y ad)
+
+term' : ∀ {s t} {c : Code s t} → Forks c → ∀ st → AccCode s t c st
+term' Nil _ = trivial
+term' (Push  f) st = step aiPush  (term' f _)
+term' (Throw f) st = step aiThrow (term' f _)
+term' (Add   f) st = step aiAdd   (term' f _)
+term' (Branch {u} {s} {t} {r} {h} {is} rf hf isf) st
+  = step aiMark (acc-app r is (term' rf _) (term' isf))
+-}
+{-
 term : ∀ {s t st} → (c : Code s t) → Closed c → AccCode s t c st
 term c pf = term' (rehash c pf (size c) ≤-refl)
+-}
+{-
+-- health economics
 
+It's this fascinating symbiosis of mind and machine where my most perverse ideas
+get materialized in heavily dependent code.
+
+-}

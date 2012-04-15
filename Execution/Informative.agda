@@ -21,6 +21,12 @@ data State (s : Shape) : Set where
   ![_,_] : (n : ℕ) → Resume (unwindShape s n) (unwindHnd s n) → State s
 
 mutual
+  unwindStack : ∀ {s} → Stack s → (n : ℕ) → Resume (unwindShape s n) (unwindHnd s n)
+  unwindStack (h !! xs) zero    = Okay h xs
+  unwindStack (_ !! xs) (suc n) = unwindStack xs n
+  unwindStack (_ :: xs) n       = unwindStack xs n
+  unwindStack snil      _       = Fail
+
   -- Accessibility of instructions (+ state)
   data AccInstr : ∀ s t → Instr s t → State s → Set where
     aiAdd : ∀ {s st} → AccInstr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s) ADD st
@@ -30,7 +36,7 @@ mutual
     aiUnmark✓ : ∀ {s u st} → AccInstr (Val u ∷ Han u ∷ s) (Val u ∷ s) UNMARK ✓[ st ]
     aiUnmark! : ∀ {s u n r} → AccInstr (Val u ∷ Han u ∷ s) (Val u ∷ s) UNMARK ![ suc n , r ]
     aiHandle : ∀ {s u h st}
-      → AccCode s (Val u ∷ s) h ✓[ st ]
+      → (∀ st → AccCode s (Val u ∷ s) h st)
       → AccInstr (Val u ∷ Han u ∷ s) (Val u ∷ s) UNMARK ![ zero , Okay h st ] 
 
   -- Accessibility of code (+ state)
@@ -56,7 +62,7 @@ mutual
   -- Non-trivial exception processing
   execInstr (MARK _) ![ n     , r         ] aiMark        = ![ suc n , r ]
   execInstr UNMARK   ![ suc n , r         ] aiUnmark!     = ![ n     , r ]
-  execInstr UNMARK   ![ zero  , Okay h st ] (aiHandle ac) = execCode h ✓[ st ] ac
+  execInstr UNMARK   ![ zero  , Okay h st ] (aiHandle ac) = execCode h ✓[ st ] (ac ✓[ st ])
 
   -- Trivial exception processing: instruction skipping
   execInstr THROW    ![ n , r ] aiThrow = ![ n , r ]

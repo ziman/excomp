@@ -135,22 +135,25 @@ dec-comp (THROW  ◅ is) (bal-Throw   pf) rewrite dec-comp is pf = refl
 dec-comp {Val u ∷ Han .u ∷ s} {t} {zero } (UNMARK ◅ is) (bal-Unmark pf) = refl
 dec-comp {Val u ∷ Han .u ∷ s} {t} {suc n} (UNMARK ◅ is) (bal-Unmark pf) rewrite dec-comp is pf = refl
 
-rehash : ∀ {s t} → (c : Code s t) → (pf : Closed c) → (m : ℕ) → (m ≥ size c) → Forks c
-rehash ε _ _ _ = Nil
-rehash (UNMARK ◅ xs) () _ _
-rehash (PUSH _ ◅ _) _ zero ()
-rehash (ADD    ◅ _) _ zero ()
-rehash (THROW  ◅ _) _ zero ()
-rehash (MARK _ ◅ _) _ zero ()
-rehash (PUSH x ◅ xs) (bal-Push  pf) (suc m) (s≤s p) = Push  (rehash xs pf m p)
-rehash (ADD    ◅ xs) (bal-Add   pf) (suc m) (s≤s p) = Add   (rehash xs pf m p)
-rehash (THROW  ◅ xs) (bal-Throw pf) (suc m) (s≤s p) = Throw (rehash xs pf m p)
-rehash (MARK h ◅ xs) (bal-Mark hClosed pf) (suc n) (s≤s p)
+fork' : ∀ {s t} → (c : Code s t) → (pf : Closed c) → (m : ℕ) → (m ≥ size c) → Forks c
+fork' ε _ _ _ = Nil
+fork' (UNMARK ◅ xs) () _ _
+fork' (PUSH _ ◅ _) _ zero ()
+fork' (ADD    ◅ _) _ zero ()
+fork' (THROW  ◅ _) _ zero ()
+fork' (MARK _ ◅ _) _ zero ()
+fork' (PUSH x ◅ xs) (bal-Push  pf) (suc m) (s≤s p) = Push  (fork' xs pf m p)
+fork' (ADD    ◅ xs) (bal-Add   pf) (suc m) (s≤s p) = Add   (fork' xs pf m p)
+fork' (THROW  ◅ xs) (bal-Throw pf) (suc m) (s≤s p) = Throw (fork' xs pf m p)
+fork' (MARK h ◅ xs) (bal-Mark hClosed pf) (suc n) (s≤s p)
   with decompose xs pf | dec-size₁ xs pf | dec-size₂ xs pf | dec-comp xs pf
-... | Dec u refl (m , mClosed) (r , rClosed) | pf₁ | pf₂ | pf₃ = subst (λ x → Forks (MARK h ◅ x)) pf₃
-  (Branch
-    (rehash m mClosed n (pf₁ ≤≤ n≤m+n (size h) (size xs) ≤≤ p))
-    (rehash h hClosed n (m≤m+n (size h) (size xs) ≤≤ p))
-    (rehash r rClosed n (pf₂ ≤≤ n≤m+n (size h) (size xs) ≤≤ p))
-  )
+fork' (MARK h ◅ .(m ◅◅ UNMARK ◅ r)) (bal-Mark hClosed pf) (suc n) (s≤s p) | Dec u refl (m , mClosed) (r , rClosed) | pf₁ | pf₂ | refl
+  = Branch
+    (fork' m mClosed n (pf₁ ≤≤ n≤m+n (size h) (size xs') ≤≤ p))
+    (fork' h hClosed n (m≤m+n (size h) (size xs') ≤≤ p))
+    (fork' r rClosed n (pf₂ ≤≤ n≤m+n (size h) (size xs') ≤≤ p))
+  where
+    xs' = m ◅◅ UNMARK ◅ r
 
+fork : ∀ {s t} (c : Code s t) → Closed c → Forks c
+fork c pf = fork' c pf (size c) ≤-refl
