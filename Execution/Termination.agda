@@ -30,6 +30,11 @@ unfork (Add        f) = ADD   ◅ unfork f
 unfork (Branch r h f) = MARK (unfork h) ◅ unfork r ◅◅ UNMARK ◅ unfork f
 unfork {c = PUSH x ◅ _} (Push  f) = PUSH x ◅ unfork f
 
+cong₃ : ∀ {a b c d : Set} (P : a → b → c → d) {x x' : a} {y y' : b} {z z' : c}
+  → x ≡ x' → y ≡ y' → z ≡ z'
+  → P x y z ≡ P x' y' z'
+cong₃ _ refl refl refl = refl
+
 unfork-inv : ∀ {s t} (c : Code s t) → (pf : Closed c) → c ≡ unfork (fork c pf)
 unfork-inv ε pf = refl
 unfork-inv (UNMARK ◅ is) ()
@@ -38,7 +43,7 @@ unfork-inv (THROW  ◅ is) (bal-Throw r) = cong (λ y → THROW  ◅ y) (unfork-
 unfork-inv (ADD    ◅ is) (bal-Add   r) = cong (λ y → ADD    ◅ y) (unfork-inv is r)
 unfork-inv (MARK h ◅ is) (bal-Mark hr r) with decompose is r | dec-size₁ is r | dec-size₂ is r | dec-comp is r
 unfork-inv (MARK h ◅ .(proj₁ main ◅◅ UNMARK ◅ proj₁ rest)) (bal-Mark hr r) | Dec u' refl main rest | pf₁ | pf₂ | refl
-  rewrite unfork-inv h hr = {!!}
+  = cong₃ (λ x y z → MARK x ◅ y ◅◅ UNMARK ◅ z) {!unfork-inv !} {!!} {!!}
 
 {-
 Acc : ∀ {s t} → Code s t → Set
