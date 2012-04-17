@@ -23,6 +23,7 @@ open import Execution.Informative
 open import Execution.Utils
 open import Execution.Forks
 
+{-
 unfork : ∀ {s t} {c : Code s t} → Forks c → Code s t
 unfork Nil            = ε
 unfork (Throw      f) = THROW ◅ unfork f
@@ -44,22 +45,19 @@ unfork-inv (ADD    ◅ is) (bal-Add   r) = cong (λ y → ADD    ◅ y) (unfork-
 unfork-inv (MARK h ◅ is) (bal-Mark hr r) with decompose is r | dec-size₁ is r | dec-size₂ is r | dec-comp is r
 unfork-inv (MARK h ◅ .(proj₁ main ◅◅ UNMARK ◅ proj₁ rest)) (bal-Mark hr r) | Dec u' refl main rest | pf₁ | pf₂ | refl
   = cong₃ (λ x y z → MARK x ◅ y ◅◅ UNMARK ◅ z) {!unfork-inv !} {!!} {!!}
+-}
 
-{-
 Acc : ∀ {s t} → Code s t → Set
 Acc c = ∀ st → AccCode _ _ c st
 
 acc-cons : ∀ {s t u} (i : Instr s t) (is : Code t u)
-  → AccCode (i ◅ is) → AccCode is
-acc-cons (PUSH x) is acc st with acc (execInstr (PUSH x) st aiPush)
-... | z = ?
-acc-cons (PUSH x) is acc ![ n , r ] = {!!}
+  → Acc (i ◅ is) → Acc is
+acc-cons (PUSH x) is acc st = {!!}
 acc-cons  ADD     is acc st = {!!}
 acc-cons (MARK h) is acc st = {!!}
 acc-cons  UNMARK  is acc st = {!!}
 acc-cons  THROW   is acc st = {!!}
--}
-{-
+
 acc-app : ∀ {s t v u st} (c : Code s (Val v ∷ Han v ∷ t)) (d : Code (Val v ∷ t) u)
   → AccCode _ _ c st → (∀ st' → AccCode _ _ d st') → AccCode _ _ (c ◅◅ UNMARK ◅ d) st
 acc-app {.(Val v ∷ Han v ∷ t)} {t} {v} {u} { ✓[ x :: h !! st ] } ε d ac ad = step aiUnmark✓ (ad ✓[ x :: st ])
@@ -80,15 +78,6 @@ term' (Throw f) st = step aiThrow (term' f _)
 term' (Add   f) st = step aiAdd   (term' f _)
 term' (Branch {u} {s} {t} {r} {h} {is} rf hf isf) st
   = step aiMark (acc-app r is (term' rf _) (term' isf))
--}
-{-
-term : ∀ {s t st} → (c : Code s t) → Closed c → AccCode s t c st
-term c pf = term' (rehash c pf (size c) ≤-refl)
--}
-{-
--- health economics
 
-It's this fascinating symbiosis of mind and machine where my most perverse ideas
-get materialized in heavily dependent code.
-
--}
+term : ∀ {s t} → (c : Code s t) → Closed c → ∀ st → AccCode s t c st
+term c pf = term' (fork c pf)
