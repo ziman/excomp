@@ -23,46 +23,42 @@ open import Execution.Informative
 open import Execution.Utils
 open import Execution.Forks
 
-{-
-unfork : ∀ {s t} {c : Code s t} → Forks c → Code s t
-unfork Nil            = ε
-unfork (Throw      f) = THROW ◅ unfork f
-unfork (Add        f) = ADD   ◅ unfork f
-unfork (Branch r h f) = MARK (unfork h) ◅ unfork r ◅◅ UNMARK ◅ unfork f
-unfork {c = PUSH x ◅ _} (Push  f) = PUSH x ◅ unfork f
+postulate
+  funext-dep : ∀ {a : Set} {b : a → Set} → (f g : (x : a) → b x) → (∀ x → f x ≡ g x) → f ≡ g
 
-cong₃ : ∀ {a b c d : Set} (P : a → b → c → d) {x x' : a} {y y' : b} {z z' : c}
-  → x ≡ x' → y ≡ y' → z ≡ z'
-  → P x y z ≡ P x' y' z'
-cong₃ _ refl refl refl = refl
+mutual
+  irrInstr : ∀ {s t st} (i : Instr s t) (p q : AccInstr s t i st) → p ≡ q
+  irrInstr ADD aiAdd aiAdd = refl
+  irrInstr (PUSH x) aiPush aiPush = refl
+  irrInstr THROW aiThrow aiThrow = refl
+  irrInstr (MARK h) aiMark aiMark = refl
+  irrInstr {Val u ∷ Han .u ∷ s} .{Val u ∷ s} { ✓[ st ] } UNMARK aiUnmark✓ aiUnmark✓ = refl
+  irrInstr {Val u ∷ Han .u ∷ s} .{Val u ∷ s} { ![ suc n , r ] } UNMARK aiUnmark! aiUnmark! = refl
+  irrInstr {Val u ∷ Han .u ∷ s} .{Val u ∷ s} { ![ zero , Okay h st ] } UNMARK (aiHandle p) (aiHandle q)
+    = cong aiHandle (funext-dep p q (λ st → irrCode h (p st) (q st)))
 
-unfork-inv : ∀ {s t} (c : Code s t) → (pf : Closed c) → c ≡ unfork (fork c pf)
-unfork-inv ε pf = refl
-unfork-inv (UNMARK ◅ is) ()
-unfork-inv (PUSH x ◅ is) (bal-Push  r) = cong (λ y → PUSH x ◅ y) (unfork-inv is r)
-unfork-inv (THROW  ◅ is) (bal-Throw r) = cong (λ y → THROW  ◅ y) (unfork-inv is r)
-unfork-inv (ADD    ◅ is) (bal-Add   r) = cong (λ y → ADD    ◅ y) (unfork-inv is r)
-unfork-inv (MARK h ◅ is) (bal-Mark hr r) with decompose is r | dec-size₁ is r | dec-size₂ is r | dec-comp is r
-unfork-inv (MARK h ◅ .(proj₁ main ◅◅ UNMARK ◅ proj₁ rest)) (bal-Mark hr r) | Dec u' refl main rest | pf₁ | pf₂ | refl
-  = cong₃ (λ x y z → MARK x ◅ y ◅◅ UNMARK ◅ z) {!unfork-inv !} {!!} {!!}
--}
+  irrCode : ∀ {s t st} (c : Code s t) (p q : AccCode s t c st) → p ≡ q
+  irrCode ε trivial trivial = refl
+  irrCode (i ◅ is) (step ai p) (step aj q) rewrite irrInstr i ai aj
+    = cong _ (irrCode is p q)
 
 Acc : ∀ {s t} → Code s t → Set
 Acc c = ∀ st → AccCode _ _ c st
 
-acc-cons : ∀ {s t u} (i : Instr s t) (is : Code t u)
-  → Acc (i ◅ is) → Acc is
-acc-cons (PUSH x) is acc st = {!!}
-acc-cons  ADD     is acc st = {!!}
-acc-cons (MARK h) is acc st = {!!}
-acc-cons  UNMARK  is acc st = {!!}
-acc-cons  THROW   is acc st = {!!}
+acc-cons : ∀ {s t u} (st : State s) (i : Instr s t) (is : Code t u)
+  → (ai : AccInstr s t i st)
+  → AccCode s u (i ◅ is) st
+  → AccCode t u is (execInstr i st ai)
+acc-cons st i is ai (step aj ac) rewrite irrInstr i ai aj = ac
 
 acc-app : ∀ {s t v u st} (c : Code s (Val v ∷ Han v ∷ t)) (d : Code (Val v ∷ t) u)
   → AccCode _ _ c st → (∀ st' → AccCode _ _ d st') → AccCode _ _ (c ◅◅ UNMARK ◅ d) st
-acc-app {.(Val v ∷ Han v ∷ t)} {t} {v} {u} { ✓[ x :: h !! st ] } ε d ac ad = step aiUnmark✓ (ad ✓[ x :: st ])
-acc-app {.(Val v ∷ Han v ∷ t)} {t} {v} {u} { ![ suc n , r ] } ε d ac ad = step aiUnmark! (ad ![ n , r ])
-acc-app {Val v ∷ Han .v ∷ t} .{t} .{v} {u} { ![ zero , Okay .{v} h st ] } ε d ac ad = step (aiHandle {!!}) (ad _)
+acc-app {.(Val v ∷ Han v ∷ t)} {t} {v} {u} { ✓[ x :: h !! st ] } ε d ac ad 
+  = step aiUnmark✓ (ad ✓[ x :: st ])
+acc-app {.(Val v ∷ Han v ∷ t)} {t} {v} {u} { ![ suc n , r ] } ε d ac ad 
+  = step aiUnmark! (ad ![ n , r ])
+acc-app {Val v ∷ Han .v ∷ t} .{t} .{v} {u} { ![ zero , Okay .{v} h st ] } ε d ac ad
+  = step (aiHandle λ st' → {!!} ) (ad _)
 acc-app (PUSH x ◅ is) d (step aiPush  y) ad = step aiPush (acc-app is d y ad)
 acc-app (ADD    ◅ is) d (step aiAdd   y) ad = step aiAdd (acc-app is d y ad)
 acc-app (MARK h ◅ is) d (step aiMark  y) ad = step aiMark (acc-app is d y ad)
