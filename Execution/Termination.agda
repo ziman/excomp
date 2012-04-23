@@ -112,30 +112,33 @@ hnd [] = []
 hnd (Val u ∷ xs) = hnd xs
 hnd (Han u ∷ xs) = (u , xs) ∷ hnd xs
 
-data Handlers : List (U × Shape) → Set where
-  hnil : Handlers []
-  hcons : ∀ {u s xs}
+data Handlers : ∀ {s} → State s → Set where
+  hNil : Handlers []
+  hVal : ∀ {u s x}
+    → Handlers ✓[ st ]
+    → Handlers ✓[ x :: st ]
+  hHnd : ∀ {u s x st}
     → (h : Code s (Val u ∷ s))
-    → (∀ st → Trace h st)
-    → Handlers xs
-    → Handlers ((u , s) ∷ xs)
+    → (hs : Handlers ✓[ st ])
+    → Trace h st
+    → Handlers ✓[ h !! st ] 
 
-trace : ∀ {s t} → Handlers (hnd s) → (c : Code s t) → (st : State s) → Trace c st
-trace hs ε st = tε
-trace hs (PUSH x ◅ is) ✓[           st ] = tPush✓ x (trace hs is ✓[       x :: st ])
-trace hs (ADD    ◅ is) ✓[ x :: y :: st ] = tAdd✓    (trace hs is ✓[ (x + y) :: st ])
-trace hs (THROW  ◅ is) ✓[           st ] = tThrow✓  (trace hs is ![ zero , unwindStack st zero ])
+trace : ∀ {s t} → (c : Code s t) → (st : State s) → Handlers st → Trace c st
+trace ε st hs = tε
+trace (PUSH x ◅ is) ✓[           st ] hs = tPush✓ x (trace hs is ✓[       x :: st ] (hVal hs))
+trace (ADD    ◅ is) ✓[ x :: y :: st ] (hVal (hVal hs)) = tAdd✓    (trace hs is ✓[ (x + y) :: st ] (hVal hs))
+trace (THROW  ◅ is) ✓[           st ] hs = tThrow✓  (trace hs is ![ zero , unwindStack st zero ] ?)
 
-trace hs (PUSH x ◅ is) ![ n , r ] = tPush! x (trace hs is ![ n , r ])
-trace hs (ADD    ◅ is) ![ n , r ] = tAdd!    (trace hs is ![ n , r ])
-trace hs (THROW  ◅ is) ![ n , r ] = tThrow!  (trace hs is ![ n , r ])
+trace (PUSH x ◅ is) ![ n , r ] hs = tPush! x (trace hs is ![ n , r ] ?)
+trace (ADD    ◅ is) ![ n , r ] hs = tAdd!    (trace hs is ![ n , r ] ?)
+trace (THROW  ◅ is) ![ n , r ] hs = tThrow!  (trace hs is ![ n , r ] ?)
 
-trace hs (MARK h ◅ is) ✓[ st ]    = tMark✓ (trace (hcons h (trace hs h) hs) is ✓[ h !! st ])
-trace hs (MARK h ◅ is) ![ n , r ] = tMark! (trace (hcons h (trace hs h) hs) is ![ suc n , r ])
+trace (MARK h ◅ is) ✓[ st ]    hs = tMark✓ is ✓[ h !! st ] (hHnd h hs (trace h ✓[ st ] )))
+trace (MARK h ◅ is) ![ n , r ] hs = tMark! is ![ suc n , r ])
 
-trace {Val u ∷ Han .u ∷ s} (hcons _ _ hs) (UNMARK ◅ is) ✓[ x :: _ !! st ] = tUnmark✓ (trace hs is ✓[ x :: st ])
-trace {Val u ∷ Han .u ∷ s} (hcons _ _ hs) (UNMARK ◅ is) ![ suc n , r ] = tUnmark! (trace hs is ![ n , r ]) 
-trace {Val u ∷ Han .u ∷ s} (hcons .h t' hs) (UNMARK ◅ is) ![ zero , Okay h st ]
+trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ✓[ x :: _ !! st ] = tUnmark✓ (trace hs is ✓[ x :: st ])
+trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ![ suc n , r ] = tUnmark! (trace hs is ![ n , r ]) 
+trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ![ zero , Okay h st ]
   = tHandle {!!} (trace hs is)
 
 {-
