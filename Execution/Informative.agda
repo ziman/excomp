@@ -36,7 +36,7 @@ mutual
     aiUnmark✓ : ∀ {s u st} → AccInstr (Val u ∷ Han u ∷ s) (Val u ∷ s) UNMARK ✓[ st ]
     aiUnmark! : ∀ {s u n r} → AccInstr (Val u ∷ Han u ∷ s) (Val u ∷ s) UNMARK ![ suc n , r ]
     aiHandle : ∀ {s u h st}
-      → (∀ st → AccCode s (Val u ∷ s) h st)
+      → (∀ st → AccCode s (Val u ∷ s) h ✓[ st ])
       → AccInstr (Val u ∷ Han u ∷ s) (Val u ∷ s) UNMARK ![ zero , Okay h st ] 
 
   -- Accessibility of code (+ state)
@@ -62,7 +62,7 @@ mutual
   -- Non-trivial exception processing
   execInstr (MARK _) ![ n     , r         ] aiMark        = ![ suc n , r ]
   execInstr UNMARK   ![ suc n , r         ] aiUnmark!     = ![ n     , r ]
-  execInstr UNMARK   ![ zero  , Okay h st ] (aiHandle ac) = execCode h ✓[ st ] (ac ✓[ st ])
+  execInstr UNMARK   ![ zero  , Okay h st ] (aiHandle ac) = execCode h ✓[ st ] (ac st)
 
   -- Trivial exception processing: instruction skipping
   execInstr THROW    ![ n , r ] aiThrow = ![ n , r ]

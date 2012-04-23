@@ -23,6 +23,7 @@ open import Execution.Informative
 open import Execution.Utils
 open import Execution.Forks
 
+{-
 postulate
   funext-dep : ∀ {a : Set} {b : a → Set} → (f g : (x : a) → b x) → (∀ x → f x ≡ g x) → f ≡ g
 
@@ -77,3 +78,83 @@ term' (Branch {u} {s} {t} {r} {h} {is} rf hf isf) st
 
 term : ∀ {s t} → (c : Code s t) → Closed c → ∀ st → AccCode s t c st
 term c pf = term' (fork c pf)
+-}
+
+data Trace : ∀ {s t} → Code s t → State s → Set where
+  tε : ∀ {s st} → Trace {s} {s} ε st 
+  tPush✓ : ∀ {s t u} {st : Stack s} {is : Code (Val u ∷ s) t} x
+    → Trace is ✓[ x :: st ] → Trace (PUSH x ◅ is) ✓[ st ]
+  tPush! : ∀ {s t u n r} {is : Code (Val u ∷ s) t} x
+    → Trace is ![ n , r ] → Trace (PUSH x ◅ is) ![ n , r ]
+  tAdd✓ : ∀ {s t x y} {st : Stack s} {is : Code _ t}
+    → Trace is ✓[ (x + y) :: st ] → Trace (ADD ◅ is) ✓[ x :: y :: st ]
+  tAdd! : ∀ {s t n r} {is : Code (Val Nat ∷ s) t}
+    → Trace is ![ n , r ] → Trace (ADD ◅ is) ![ n , r ]
+  tThrow✓ : ∀ {s t u} {st : Stack s} {is : Code (Val u ∷ s) t}
+    → Trace is ![ zero , unwindStack st zero ] → Trace (THROW ◅ is) ✓[ st ]
+  tThrow! : ∀ {s t u n r} {is : Code (Val u ∷ s) t}
+    → Trace is ![ n , r ] → Trace (THROW ◅ is) ![ n , r ]
+  tMark✓ : ∀ {s t u h} {st : Stack s} {is : Code (Han u ∷ s) t}
+    → Trace is ✓[ h !! st ] → Trace (MARK h ◅ is) ✓[ st ]
+  tMark! : ∀ {s t u h n r} {is : Code (Han u ∷ s) t}
+    → Trace is ![ suc n , r ] → Trace (MARK h ◅ is) ![ n , r ]
+  tUnmark✓ : ∀ {s t u x h} {st : Stack s} {is : Code (Val u ∷ s) t}
+    → Trace is ✓[ x :: st ] → Trace (UNMARK ◅ is) ✓[ x :: h !! st ]
+  tUnmark! : ∀ {s t u n r} {is : Code (Val u ∷ s) t}
+    → Trace is ![ n , r ] → Trace (UNMARK ◅ is) ![ suc n , r ]
+  tHandle : ∀ {s t u h} {st : Stack s} {is : Code (Val u ∷ s) t}
+    → (∀ st' → Trace h st')
+    → (∀ st' → Trace is st')
+    → Trace (UNMARK ◅ is) ![ zero , Okay h st ]
+
+hnd : Shape → List (U × Shape)
+hnd [] = []
+hnd (Val u ∷ xs) = hnd xs
+hnd (Han u ∷ xs) = (u , xs) ∷ hnd xs
+
+data Handlers : List (U × Shape) → Set where
+  hnil : Handlers []
+  hcons : ∀ {u s xs}
+    → (h : Code s (Val u ∷ s))
+    → (∀ st → Trace h st)
+    → Handlers xs
+    → Handlers ((u , s) ∷ xs)
+
+trace : ∀ {s t} → Handlers (hnd s) → (c : Code s t) → (st : State s) → Trace c st
+trace hs ε st = tε
+trace hs (PUSH x ◅ is) ✓[           st ] = tPush✓ x (trace hs is ✓[       x :: st ])
+trace hs (ADD    ◅ is) ✓[ x :: y :: st ] = tAdd✓    (trace hs is ✓[ (x + y) :: st ])
+trace hs (THROW  ◅ is) ✓[           st ] = tThrow✓  (trace hs is ![ zero , unwindStack st zero ])
+
+trace hs (PUSH x ◅ is) ![ n , r ] = tPush! x (trace hs is ![ n , r ])
+trace hs (ADD    ◅ is) ![ n , r ] = tAdd!    (trace hs is ![ n , r ])
+trace hs (THROW  ◅ is) ![ n , r ] = tThrow!  (trace hs is ![ n , r ])
+
+trace hs (MARK h ◅ is) ✓[ st ]    = tMark✓ (trace (hcons h (trace hs h) hs) is ✓[ h !! st ])
+trace hs (MARK h ◅ is) ![ n , r ] = tMark! (trace (hcons h (trace hs h) hs) is ![ suc n , r ])
+
+trace {Val u ∷ Han .u ∷ s} (hcons _ _ hs) (UNMARK ◅ is) ✓[ x :: _ !! st ] = tUnmark✓ (trace hs is ✓[ x :: st ])
+trace {Val u ∷ Han .u ∷ s} (hcons _ _ hs) (UNMARK ◅ is) ![ suc n , r ] = tUnmark! (trace hs is ![ n , r ]) 
+trace {Val u ∷ Han .u ∷ s} (hcons .h t' hs) (UNMARK ◅ is) ![ zero , Okay h st ]
+  = tHandle {!!} (trace hs is)
+
+{-
+simh : ∀ {s t} → (c : Code s t) → Handlers (handlers s) → Handlers (handlers t)
+simh ε hnd = hnd
+simh (PUSH _ ◅ is) hnd = simh is hnd
+simh (ADD    ◅ is) hnd = simh is hnd
+simh (THROW  ◅ is) hnd = simh is hnd
+simh (MARK h ◅ is) hnd = simh is (hcons h {!!} hnd)
+simh (UNMARK ◅ is) (hcons h hc hnd) = simh is hnd
+-}
+{-
+term : ∀ {s t} → (c : Code s t) → Handlers (hnd s) → ∀ st → AccCode _ _ c st
+term ε hnd st = trivial
+term (PUSH _ ◅ is) hnd st = step aiPush  (term is hnd _)
+term (ADD    ◅ is) hnd st = step aiAdd   (term is hnd _)
+term (THROW  ◅ is) hnd st = step aiThrow (term is hnd _)
+term (MARK h ◅ is) hnd st = step aiMark  (term is (hcons h (λ st → term h hnd ✓[ st ]) hnd) _)
+term (UNMARK ◅ is) (hcons h hc hnd) ✓[ st ] = step aiUnmark✓ (term is hnd _)
+term (UNMARK ◅ is) (hcons h hc hnd) ![ suc n , r ] = step aiUnmark! (term is hnd _)
+term (UNMARK ◅ is) (hcons h hc hnd) ![ zero , Okay h st ] = step (aiHandle {!!}) (term is hnd _)
+-}
