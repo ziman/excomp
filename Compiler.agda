@@ -22,5 +22,5 @@ opInstr Plus = ADD
 compile : ∀ {u s} → Exp u → Code s (Val u ∷ s)
 compile (Lit n)      = ⟦ PUSH n ⟧
 compile Throw        = ⟦ THROW ⟧
-compile (Catch e h)  = ⟦ MARK (compile h) ⟧ ◅◅ compile e ◅◅ ⟦ UNMARK ⟧
+compile (Catch e h)  = ⟦ MARK ⟧ ◅◅ compile e ◅◅ ⟦ UNMARK (compile h) ⟧
 compile (Bin op l r) = compile r ◅◅ compile l ◅◅ ⟦ opInstr op ⟧

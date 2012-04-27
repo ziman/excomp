@@ -5,6 +5,7 @@ open import Data.List
 open import Data.Sum
 open import Data.Maybe
 open import Data.Star
+open import Data.Unit
 
 open import TypeUniverse
 open import Expression
@@ -23,8 +24,8 @@ mutual
   data Instr : Shape → Shape → Set where
     PUSH : ∀ {u s} → el u → Instr s (Val u ∷ s)
     ADD : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
-    MARK : ∀ {u s} → Code s (Val u ∷ s) → Instr s (Han u ∷ s)
-    UNMARK : ∀ {u s} → Instr (Val u ∷ Han u ∷ s) (Val u ∷ s)
+    MARK : ∀ {u s} → Instr s (Han u ∷ s)
+    UNMARK : ∀ {u s} → Code s (Val u ∷ s) → Instr (Val u ∷ Han u ∷ s) (Val u ∷ s)
     THROW : ∀ {u s} → Instr s (Val u ∷ s)
 
   -- Code is an (indexed) list of instructions.
@@ -32,9 +33,9 @@ mutual
   Code = Star Instr
 
 infixr 50 _::_
-infixr 50 _!!_
+infixr 50 ■!!_
 data Stack : Shape → Set where
   snil : Stack []
   _::_ : ∀ {u s} → el u → Stack s → Stack (Val u ∷ s)
-  _!!_ : ∀ {u s} → Code s (Val u ∷ s) → Stack s → Stack (Han u ∷ s)
+  ■!!_ : ∀ {u s} → Stack s → Stack (Han u ∷ s)
 
