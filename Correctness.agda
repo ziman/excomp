@@ -3,6 +3,8 @@ module Correctness where
 open import Function
 open import Data.Nat
 open import Data.List
+open import Data.Maybe
+open import Data.Star
 open import Relation.Binary.PropositionalEquality
 
 open import TypeUniverse
@@ -12,50 +14,82 @@ open import Code
 open import Compiler
 open import Execution
 
--- Correctness of operator translation. Because of the way how the translation
--- is written, this is not "free" and must be proved for each operator.
-op-correct : ∀ {u v w q st} {x : el u} {y : el v} (op : Op u v w)
-  → exec-instr (opInstr {u} {v} {w} {q} op) (x :: y :: st) ≡ denOp op x y :: st
-op-correct Plus = refl
+-- Smart stack pusher
+infixr 5 _:::_
+_:::_ : ∀ {u s} → Maybe (el u) → State s → State (Val u ∷ s)
+_:::_ nothing  ![ n , st ] = ![ n , st ]
+_:::_ (just x) ![ n , st ] = ![ n , st ]
+_:::_ nothing  ✓[   st   ] = ![ zero , unwindStack st zero ]
+_:::_ (just x) ✓[   st   ] = ✓[ x :: st ]
 
--- Exec distributes over ⊕.
-compile-distr : ∀ {t u v} (code₁ : Code t u) (code₂ : Code u v) (st : Stack t)
-  → exec (code₁ ⊕ code₂) st ≡ exec code₂ (exec code₁ st)
-compile-distr cnil      cs st = refl
-compile-distr (i ,, is) cs st = begin
-    exec ((i ,, is) ⊕ cs) st
-      ≡⟨ refl ⟩
-    exec (is ⊕ cs) (exec-instr i st)
-      ≡⟨ compile-distr is cs _ ⟩
-    exec cs (exec is (exec-instr i st))
-      ≡⟨ refl ⟩
-    exec cs (exec (i ,, is) st)
-      ∎
-  where
-    open ≡-Reasoning
+-- Execution distributes over ◅◅
+distr : ∀ {s t u} (st : State s) (c : Code s t) (d : Code t u)
+  → execCode (c ◅◅ d) st ≡ execCode d (execCode c st)
+distr st ε d = refl
+distr st (x ◅ xs) d rewrite distr (execInstr x st) xs d = refl
 
--- The main correctness theorem: executing compiled code is equivalent
--- to pushing the correspondent denotation to the stack.
-correctness : ∀ {u s} (e : Exp u) (st : Stack s) → exec (compile e) st ≡ denExp e :: st
-correctness (Lit x)      _  = refl
-correctness (Bin op l r) st = begin
-    exec (compile (Bin op l r)) st
-      ≡⟨ refl ⟩
-    exec (compile r ⊕ compile l ⊕ single (opInstr op)) st
-      ≡⟨ compile-distr (compile r) (compile l ⊕ single (opInstr op)) st ⟩
-    exec (compile l ⊕ single (opInstr op)) (exec (compile r) st)
-      ≡⟨ compile-distr (compile l) (single (opInstr op)) _ ⟩
-    exec (single (opInstr op)) (exec (compile l) (exec (compile r) st))
-      ≡⟨ cong (λ z → exec (single (opInstr op)) (exec (compile l) z)) (correctness r st) ⟩
-    exec (single (opInstr op)) (exec (compile l) (denExp r :: st))
-      ≡⟨ cong (λ z → exec (single (opInstr op)) z) (correctness l (denExp r :: st)) ⟩
-    exec (single (opInstr op)) (denExp l :: denExp r :: st)
-      ≡⟨ refl ⟩
-    exec-instr (opInstr op) (denExp l :: denExp r :: st)
-      ≡⟨ op-correct op ⟩
-    denOp op (denExp l) (denExp r) :: st
-      ≡⟨ refl ⟩
-    denExp (Bin op l r) :: st
-      ∎
-  where
-    open ≡-Reasoning
+-- Central case analysis for binary operators
+lemma-op : ∀ {s t u v} (r : Exp t) (l : Exp u) (op : Op u t v) (st : State s)
+  → execInstr (opInstr op) (denExp l ::: denExp r ::: st) ≡ denExp (Bin op l r) ::: st
+lemma-op r l op st with denExp l | denExp r
+lemma-op r l Plus ✓[ st ] | just x  | just y  = refl
+lemma-op r l Plus ✓[ st ] | just x  | nothing = refl
+lemma-op r l Plus ✓[ st ] | nothing | just y  = refl
+lemma-op r l Plus ✓[ st ] | nothing | nothing = refl
+lemma-op r l Plus ![ n , st ] | just x  | just y  = refl
+lemma-op r l Plus ![ n , st ] | just x  | nothing = refl
+lemma-op r l Plus ![ n , st ] | nothing | just y  = refl
+lemma-op r l Plus ![ n , st ] | nothing | nothing = refl
+
+-- Central case analysis for exception handlers
+lemma-catch : ∀ {s u} (e : Exp u) (h : Exp u) (st : State s)
+  → (∀ {s} (st' : State s) → execCode (compile h) st' ≡ denExp h ::: st')
+  → execInstr (UNMARK (compile h)) (denExp e ::: execInstr MARK st) ≡ denExp (Catch e h) ::: st
+lemma-catch e h st pf with denExp e
+lemma-catch e h ✓[ st ] pf | just x = refl
+lemma-catch e h ![ n , st ] pf | just x = refl
+lemma-catch e h ✓[ st ] pf | nothing with denExp h
+lemma-catch e h ✓[ st ] pf | nothing | just x  = pf ✓[ st ]
+lemma-catch e h ✓[ st ] pf | nothing | nothing = pf ✓[ st ]
+lemma-catch e h ![ n , st ] pf | nothing with denExp h
+lemma-catch e h ![ n , st ] pf | nothing | just x  = refl
+lemma-catch e h ![ n , st ] pf | nothing | nothing = refl
+
+-- ** The main correctness theorem **
+correctness : ∀ {u} (e : Exp u) {s : Shape} (st : State s)
+  → execCode (compile e) st ≡ (denExp e ::: st)
+
+-- Trivial cases
+correctness Throw ✓[ st ] = refl
+correctness Throw ![ n , st ] = refl
+correctness (Lit x) ✓[ st ] = refl
+correctness (Lit x) ![ n , st ] = refl
+
+-- Binary operators
+correctness (Bin op l r) st = let open ≡-Reasoning in begin
+  execCode (compile r ◅◅ compile l ◅◅ opInstr op ◅ ε) st
+    ≡⟨ distr _ (compile r) _ ⟩
+  execCode (compile l ◅◅ opInstr op ◅ ε) (execCode (compile r) st)
+    ≡⟨ distr _ (compile l) _ ⟩
+  execCode (opInstr op ◅ ε) (execCode (compile l) (execCode (compile r) st))
+    ≡⟨ refl ⟩
+  execInstr (opInstr op) (execCode (compile l) (execCode (compile r) st)) 
+    ≡⟨ cong (λ x → execInstr (opInstr op) (execCode (compile l) x)) (correctness r st) ⟩
+  execInstr (opInstr op) (execCode (compile l) (denExp r ::: st))
+    ≡⟨ cong (λ x → execInstr (opInstr op) x) (correctness l (denExp r ::: st)) ⟩
+  execInstr (opInstr op) (denExp l ::: denExp r ::: st)
+    ≡⟨ lemma-op r l op st ⟩
+  denExp (Bin op l r) ::: st
+    ∎
+
+-- Exception handling
+correctness (Catch e h) st = let open ≡-Reasoning in begin
+  execCode (compile e ◅◅ UNMARK (compile h) ◅ ε) (execInstr MARK st)
+    ≡⟨ distr _ (compile e) _ ⟩
+  execInstr (UNMARK (compile h)) (execCode (compile e) (execInstr MARK st))
+    ≡⟨ cong (λ x → execInstr (UNMARK (compile h)) x) (correctness e _) ⟩
+  execInstr (UNMARK (compile h)) (denExp e ::: execInstr MARK st)
+    ≡⟨ lemma-catch e h st (correctness h) ⟩
+  denExp (Catch e h) ::: st
+    ∎
+

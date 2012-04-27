@@ -18,8 +18,10 @@ denExp (Catch e h) with denExp e
 ... | nothing = denExp h
 denExp (Lit n)      = just n
 denExp (Bin op l r) with denExp l | denExp r
-... | just x | just y = just (denOp op x y)
-... | _      | _      = nothing
+... | just x  | just y  = just (denOp op x y)
+... | just x  | nothing = nothing
+... | nothing | just y  = nothing
+... | nothing | nothing = nothing
 
 private
   -- Usage: C-c C-n example₁

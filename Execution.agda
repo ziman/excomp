@@ -15,13 +15,6 @@ open import Expression
 open import Denotation
 open import Code
 
--- Get the type of the top-most handler in the Shape.
-unwindHnd : Shape → ℕ → Maybe U
-unwindHnd (Han u ∷ xs) zero    = just u
-unwindHnd (Han _ ∷ xs) (suc n) = unwindHnd xs n
-unwindHnd (Val _ ∷ xs) n       = unwindHnd xs n
-unwindHnd []           _       = nothing
-
 -- Unwind the shape up to just below the top-most handler.
 unwindShape : Shape → ℕ → Shape
 unwindShape (Han _ ∷ xs) zero    = xs
