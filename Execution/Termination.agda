@@ -42,7 +42,12 @@ mutual
   irrCode ε trivial trivial = refl
   irrCode (i ◅ is) (step ai p) (step aj q) rewrite irrInstr i ai aj
     = cong _ (irrCode is p q)
+-}
 
+fork-inv : ∀ {s t} (c : Code s t) → unfork (fork c) ≡ c
+fork-inv c = ?
+
+{-
 Acc : ∀ {s t} → Code s t → Set
 Acc c = ∀ st → AccCode _ _ c st
 
@@ -74,12 +79,13 @@ term' (Push  f) st = step aiPush  (term' f _)
 term' (Throw f) st = step aiThrow (term' f _)
 term' (Add   f) st = step aiAdd   (term' f _)
 term' (Branch {u} {s} {t} {r} {h} {is} rf hf isf) st
-  = step aiMark (acc-app r is (term' rf _) (term' isf))
+  = step aiMark {!!}
 
 term : ∀ {s t} → (c : Code s t) → Closed c → ∀ st → AccCode s t c st
 term c pf = term' (fork c pf)
 -}
 
+{-
 data Trace : ∀ {s t} → Code s t → State s → Set where
   tε : ∀ {s st} → Trace {s} {s} ε st 
   tPush✓ : ∀ {s t u} {st : Stack s} {is : Code (Val u ∷ s) t} x
@@ -113,34 +119,34 @@ hnd (Val u ∷ xs) = hnd xs
 hnd (Han u ∷ xs) = (u , xs) ∷ hnd xs
 
 data Handlers : ∀ {s} → State s → Set where
-  hNil : Handlers []
-  hVal : ∀ {u s x}
+  hNil : Handlers ✓[ snil ]
+  hVal : ∀ {u s} {x : el u} {st : Stack s}
     → Handlers ✓[ st ]
     → Handlers ✓[ x :: st ]
   hHnd : ∀ {u s x st}
     → (h : Code s (Val u ∷ s))
     → (hs : Handlers ✓[ st ])
-    → Trace h st
+    → Trace h ✓[ st ]
     → Handlers ✓[ h !! st ] 
 
 trace : ∀ {s t} → (c : Code s t) → (st : State s) → Handlers st → Trace c st
 trace ε st hs = tε
-trace (PUSH x ◅ is) ✓[           st ] hs = tPush✓ x (trace hs is ✓[       x :: st ] (hVal hs))
-trace (ADD    ◅ is) ✓[ x :: y :: st ] (hVal (hVal hs)) = tAdd✓    (trace hs is ✓[ (x + y) :: st ] (hVal hs))
-trace (THROW  ◅ is) ✓[           st ] hs = tThrow✓  (trace hs is ![ zero , unwindStack st zero ] ?)
+trace (PUSH x ◅ is) ✓[           st ] hs = tPush✓ x (trace is ✓[       x :: st ] (hVal hs))
+trace (ADD    ◅ is) ✓[ x :: y :: st ] (hVal (hVal hs)) = tAdd✓    (trace is ✓[ (x + y) :: st ] (hVal hs))
+trace (THROW  ◅ is) ✓[           st ] hs = tThrow✓  (trace is ![ zero , unwindStack st zero ] ?)
 
-trace (PUSH x ◅ is) ![ n , r ] hs = tPush! x (trace hs is ![ n , r ] ?)
-trace (ADD    ◅ is) ![ n , r ] hs = tAdd!    (trace hs is ![ n , r ] ?)
-trace (THROW  ◅ is) ![ n , r ] hs = tThrow!  (trace hs is ![ n , r ] ?)
+trace (PUSH x ◅ is) ![ n , r ] hs = tPush! x (trace is ![ n , r ] ?)
+trace (ADD    ◅ is) ![ n , r ] hs = tAdd!    (trace is ![ n , r ] ?)
+trace (THROW  ◅ is) ![ n , r ] hs = tThrow!  (trace is ![ n , r ] ?)
 
-trace (MARK h ◅ is) ✓[ st ]    hs = tMark✓ is ✓[ h !! st ] (hHnd h hs (trace h ✓[ st ] )))
-trace (MARK h ◅ is) ![ n , r ] hs = tMark! is ![ suc n , r ])
+trace (MARK h ◅ is) ✓[ st ]    hs = tMark✓ ?
+trace (MARK h ◅ is) ![ n , r ] hs = tMark! ?
 
-trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ✓[ x :: _ !! st ] = tUnmark✓ (trace hs is ✓[ x :: st ])
-trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ![ suc n , r ] = tUnmark! (trace hs is ![ n , r ]) 
-trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ![ zero , Okay h st ]
-  = tHandle {!!} (trace hs is)
-
+trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ✓[ x :: _ !! st ] hs = tUnmark✓ (trace is ✓[ x :: st ])
+trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ![ suc n , r ] hs = tUnmark! (trace is ![ n , r ]) 
+trace {Val u ∷ Han .u ∷ s} (UNMARK ◅ is) ![ zero , Okay h st ] hs
+  = tHandle {!!} (trace is)
+-}
 {-
 simh : ∀ {s t} → (c : Code s t) → Handlers (handlers s) → Handlers (handlers t)
 simh ε hnd = hnd
