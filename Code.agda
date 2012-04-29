@@ -25,7 +25,8 @@ mutual
     PUSH : ∀ {u s} → el u → Instr s (Val u ∷ s)
     ADD : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
     MARK : ∀ {u s} → Instr s (Han u ∷ s)
-    UNMARK : ∀ {u s} → Code s (Val u ∷ s) → Instr (Val u ∷ Han u ∷ s) (Val u ∷ s)
+    HANDLE : ∀ {u s} → Instr (Val u ∷ Han u ∷ s) s
+    UNMARK : ∀ {u s} → Instr (Val u ∷ s) (Val u ∷ s) 
     THROW : ∀ {u s} → Instr s (Val u ∷ s)
 
   -- Code is an (indexed) list of instructions.
