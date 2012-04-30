@@ -42,41 +42,44 @@ skipShape []            _      = []
 -- Execution state of the virtual machine.
 data State (s : Shape) : Set where
   -- Normal operation
-  ✓[_] : Stack s → State s
+  ✓[_] : (st : Stack s) → State s
   -- Exceptional state
-  ![_,_] : (n : ℕ) → Stack (unwindShape s n) → State s
+  ![_,_] : (n : ℕ) → (st : Stack (unwindShape s n)) → State s
   -- Handler skipping (forward jump)
-  ×[_,_,_] : (u : U) → (n : ℕ) → Stack (skipShape s n) → State s
+  ×[_,_,_] : (u : U) → (n : ℕ) → (st : Stack (skipShape s n)) → State s
 
-exec : ∀ {s t} → Code s t → State s → State t
-exec ε st = st
+execInstr : ∀ {s t} → Instr s t → State s → State t
 
 -- Normal operation
-exec (PUSH x ◅ is) ✓[           st ] = exec is ✓[    x    :: st ]
-exec (ADD    ◅ is) ✓[ x :: y :: st ] = exec is ✓[ (x + y) :: st ]
-exec (MARK{u}◅ is) ✓[           st ] = exec is ✓[ han u :: skp u :: st ]
-exec (UNMARK ◅ is) ✓[ x :: skp u :: st ] = exec is ✓[    x    :: st ]
-exec (THROW  ◅ is) ✓[           st ] = exec is ![ zero , unwindStack st zero ]
-
+execInstr (PUSH  x ) ✓[           st ] = ✓[    x    :: st ]
+execInstr  ADD       ✓[ x :: y :: st ] = ✓[ (x + y) :: st ]
+execInstr (MARK {u}) ✓[           st ] = ✓[ han u :: skp u :: st ]
+execInstr  THROW     ✓[           st ] = ![ zero , unwindStack st zero ]
+execInstr  UNMARK    ✓[ x :: skp u :: st ] = ✓[    x    :: st ]
+  
 -- Exception handling: trivial
-exec (THROW  ◅ is) ![     n , st ] = exec is ![     n , st ]
-exec (PUSH x ◅ is) ![     n , st ] = exec is ![     n , st ]
-exec (ADD    ◅ is) ![     n , st ] = exec is ![     n , st ]
-exec (UNMARK ◅ is) ![     n , st ] = exec is ![     n , st ]
-exec (MARK   ◅ is) ![     n , st ] = exec is ![ suc n , st ]
-exec (HANDLE ◅ is) ![ suc n , st ] = exec is ![     n , st ]
-
+execInstr  THROW   ![     n , st ] = ![     n , st ]
+execInstr (PUSH x) ![     n , st ] = ![     n , st ]
+execInstr  ADD     ![     n , st ] = ![     n , st ]
+execInstr  UNMARK  ![     n , st ] = ![     n , st ]
+execInstr  MARK    ![     n , st ] = ![ suc n , st ]
+execInstr  HANDLE  ![ suc n , st ] = ![     n , st ]
+  
 -- Forward jump: trivial
-exec (THROW  ◅ is) ×[ u , n , st ] = exec is ×[ u , n , st ]
-exec (PUSH x ◅ is) ×[ u , n , st ] = exec is ×[ u , n , st ]
-exec (ADD    ◅ is) ×[ u , n , st ] = exec is ×[ u , n , st ]
-exec (HANDLE ◅ is) ×[ u , n , st ] = exec is ×[ u , n , st ]
-exec (MARK   ◅ is) ×[ u , n , st ] = exec is ×[ u , suc n , st ]
-exec (UNMARK ◅ is) ×[ u , suc n , st ] = exec is ×[ u , n , st ]
-exec (UNMARK ◅ is) ×[ u , zero  , st ] = exec is ✓[ st ]
-
+execInstr  THROW   ×[ u , n , st ] = ×[ u , n , st ]
+execInstr (PUSH x) ×[ u , n , st ] = ×[ u , n , st ]
+execInstr  ADD     ×[ u , n , st ] = ×[ u , n , st ]
+execInstr  HANDLE  ×[ u , n , st ] = ×[ u , n , st ]
+execInstr  MARK    ×[ u , n , st ] = ×[ u , suc n , st ]
+execInstr  UNMARK  ×[ u , suc n , st ] = ×[ u , n , st ]
+execInstr  UNMARK  ×[ u , zero  , st ] = ✓[ st ]
+  
 -- Exception handling: run the handler on exception
-exec (HANDLE ◅ is) ![ zero , st ] = exec is ✓[ st ]
-
+execInstr HANDLE ![ zero , st ] = ✓[ st ]
+  
 -- Exception handling: no exception, skip the handler, keeping the current stack
-exec (HANDLE ◅ is) ✓[ x :: han u :: skp .u :: st ] = exec is ×[ u , zero , x :: st ]
+execInstr HANDLE ✓[ x :: han u :: skp .u :: st ] = ×[ u , zero , x :: st ]
+
+execCode : ∀ {s t} → Code s t → State s → State t
+execCode ε st = st
+execCode (i ◅ is) st = execCode is (execInstr i st)

@@ -19,15 +19,18 @@ infixr 5 _:::_
 _:::_ : ∀ {u s} → Maybe (el u) → State s → State (Val u ∷ s)
 _:::_ nothing  ![ n , st ] = ![ n , st ]
 _:::_ (just x) ![ n , st ] = ![ n , st ]
+_:::_ nothing  ×[ u , n , st ] = ×[ u , n , st ]
+_:::_ (just x) ×[ u , n , st ] = ×[ u , n , st ]
 _:::_ nothing  ✓[   st   ] = ![ zero , unwindStack st zero ]
 _:::_ (just x) ✓[   st   ] = ✓[ x :: st ]
 
 -- Execution distributes over ◅◅
 distr : ∀ {s t u} (st : State s) (c : Code s t) (d : Code t u)
-  → execCode (c ◅◅ d) st ≡ execCode d (execCode c st)
+  → exec (c ◅◅ d) st ≡ exec d (exec c st)
 distr st ε d = refl
-distr st (x ◅ xs) d rewrite distr (execInstr x st) xs d = refl
+distr st (i ◅ is) d rewrite distr (exec (i ◅ ε) st) is d = {!refl!}
 
+{-
 -- Central case analysis for binary operators
 lemma-op : ∀ {s t u v} (r : Exp t) (l : Exp u) (op : Op u t v) (st : State s)
   → execInstr (opInstr op) (denExp l ::: denExp r ::: st) ≡ denExp (Bin op l r) ::: st
@@ -91,5 +94,30 @@ correctness (Catch e h) st = let open ≡-Reasoning in begin
   execInstr (UNMARK (compile h)) (denExp e ::: execInstr MARK st)
     ≡⟨ lemma-catch e h st (correctness h) ⟩
   denExp (Catch e h) ::: st
+    ∎
+-}
+
+-- ** The main correctness theorem **
+correctness : ∀ {u} (e : Exp u) {s : Shape} (st : State s)
+  → exec (compile e) st ≡ (denExp e ::: st)
+
+-- Trivial expressions
+correctness Throw   ✓[         st ] = refl
+correctness Throw   ![     n , st ] = refl
+correctness Throw   ×[ u , n , st ] = refl
+correctness (Lit x) ✓[         st ] = refl
+correctness (Lit x) ![     n , st ] = refl
+correctness (Lit x) ×[ u , n , st ] = refl
+
+correctness (Catch e h) st  = let open ≡-Reasoning in begin
+  exec (MARK ◅ compile e ◅◅ HANDLE ◅ compile h ◅◅ UNMARK ◅ ε) st
+    ≡⟨ {!!} ⟩
+  denExp (Catch e h) ::: st
+    ∎
+
+correctness (Bin op l r) st = let open ≡-Reasoning in begin
+  exec (compile r ◅◅ compile l ◅◅ opInstr op ◅ ε) st
+    ≡⟨ {!!} ⟩
+  denExp (Bin op l r) ::: st
     ∎
 
