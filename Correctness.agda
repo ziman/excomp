@@ -63,17 +63,10 @@ lemma-op r l Plus ×[ u , n , st ] | just x  | nothing = refl
 lemma-op r l Plus ×[ u , n , st ] | nothing | just y  = refl
 lemma-op r l Plus ×[ u , n , st ] | nothing | nothing = refl
 
--- Central case analysis for catch-expressions
 lemma-catch : ∀ {u s} (e h : Exp u) (st : State s)
-  → (execInstr UNMARK ∘ execCode (compile h) ∘ execInstr HANDLE ∘ execCode (compile e) ∘ execInstr MARK $ st)
+  → execInstr UNMARK (denExp h ::: execInstr HANDLE (denExp e ::: execInstr MARK st))
     ≡ denExp (Catch e h) ::: st
-lemma-catch e h st with denExp e
-lemma-catch e h ✓[         st ] | just x = {!!}
-lemma-catch e h ![     n , st ] | just x = {!!}
-lemma-catch e h ×[ u , n , st ] | just x = {!!}
-lemma-catch e h ✓[         st ] | nothing = {!!}
-lemma-catch e h ![     n , st ] | nothing = {!!}
-lemma-catch e h ×[ u , n , st ] | nothing = {!!}
+lemma-catch e h st = {!!}
 
 -- ** The main correctness theorem **
 correctness : ∀ {u} (e : Exp u) {s : Shape} (st : State s)
@@ -94,6 +87,10 @@ correctness (Catch e h) st  = let open ≡-Reasoning in begin
   execCode (compile h ◅◅ UNMARK ◅ ε) ((execInstr HANDLE ∘ execCode (compile e) ∘ execInstr MARK) st)
     ≡⟨ distr _ (compile h) _ ⟩
   (execInstr UNMARK ∘ execCode (compile h) ∘ execInstr HANDLE ∘ execCode (compile e) ∘ execInstr MARK $ st)
+    ≡⟨ cong (execInstr UNMARK ∘ execCode (compile h) ∘ execInstr HANDLE) (correctness e _) ⟩
+  (execInstr UNMARK ∘ execCode (compile h) ∘ execInstr HANDLE) (denExp e ::: execInstr MARK st)
+    ≡⟨ cong (execInstr UNMARK) (correctness h _) ⟩
+  execInstr UNMARK (denExp h ::: execInstr HANDLE (denExp e ::: execInstr MARK st))
     ≡⟨ lemma-catch e h st ⟩
   denExp (Catch e h) ::: st
     ∎
