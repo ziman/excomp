@@ -14,21 +14,24 @@ open import Code
 open import Compiler
 open import Execution
 
--- Smart stack pusher
-infixr 5 _:::_
-_:::_ : ∀ {u s} → Maybe (el u) → State s → State (Val u ∷ s)
-_:::_ nothing  ![ n , st ] = ![ n , st ]
-_:::_ (just x) ![ n , st ] = ![ n , st ]
-_:::_ nothing  ×[ u , n , st ] = ×[ u , n , st ]
-_:::_ (just x) ×[ u , n , st ] = ×[ u , n , st ]
-_:::_ nothing  ✓[   st   ] = ![ zero , unwindStack st zero ]
-_:::_ (just x) ✓[   st   ] = ✓[ x :: st ]
+module Utils where
+  -- Smart stack pusher
+  infixr 5 _:::_
+  _:::_ : ∀ {u s} → Maybe (el u) → State s → State (Val u ∷ s)
+  _:::_ nothing  ![ n , st ] = ![ n , st ]
+  _:::_ (just x) ![ n , st ] = ![ n , st ]
+  _:::_ nothing  ×[ u , n , st ] = ×[ u , n , st ]
+  _:::_ (just x) ×[ u , n , st ] = ×[ u , n , st ]
+  _:::_ nothing  ✓[   st   ] = ![ zero , unwindStack st zero ]
+  _:::_ (just x) ✓[   st   ] = ✓[ x :: st ]
 
--- Execution distributes over ◅◅
-distr : ∀ {s t u} (st : State s) (c : Code s t) (d : Code t u)
-  → execCode (c ◅◅ d) st ≡ execCode d (execCode c st)
-distr st ε d = refl
-distr st (i ◅ is) d rewrite distr (execInstr i st) is d = refl
+  -- Execution distributes over ◅◅
+  distr : ∀ {s t u} (st : State s) (c : Code s t) (d : Code t u)
+    → execCode (c ◅◅ d) st ≡ execCode d (execCode c st)
+  distr st ε d = refl
+  distr st (i ◅ is) d rewrite distr (execInstr i st) is d = refl
+
+open Utils
 
 -- Central case analysis for binary operators
 lemma-op : ∀ {s t u v} (r : Exp t) (l : Exp u) (op : Op u t v) (st : State s)
