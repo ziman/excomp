@@ -36,34 +36,25 @@ data State (s : Shape) : Set where
   -- Exceptional state: skip instructions until the corresponding UNMARK and then resume.
   ![_,_] : (n : ℕ) → Stack (unwindShape s n) → State s
 
-mutual
-  -- Instruction execution
-  execInstr : ∀ {s t} → Instr s t → State s → State t
-  
-  -- Normal operation
-  execInstr ADD        ✓[ x :: y :: st ] = ✓[ (x + y) :: st ]
-  execInstr (UNMARK _) ✓[ x ::  ■!! st ] = ✓[       x :: st ]
-  execInstr (PUSH x)   ✓[           st ] = ✓[       x :: st ]
-  execInstr MARK       ✓[           st ] = ✓[        ■!! st ]
+exec : ∀ {s t} → Code s t → State s → State t
+exec ε st = st
 
-  -- Exception throwing
-  -- Unwind the stack, creating a resumption point. Instruction skipping begins.
-  execInstr THROW ✓[ st ] = ![ zero , unwindStack st zero  ]
+-- Normal operation
+exec (PUSH x ◅ is) ✓[           st ] = exec is ✓[    x    :: st ]
+exec (ADD    ◅ is) ✓[ x :: y :: st ] = exec is ✓[ (x + y) :: st ]
+exec (MARK   ◅ is) ✓[           st ] = exec is ✓[        ■!! st ]
+exec (UNMARK ◅ is)              st   = exec is               st
+exec (THROW  ◅ is) ✓[           st ] = exec is ![ zero , unwindStack st zero ]
 
-  -- Non-trivial exception processing
-  execInstr MARK       ![ n     , st ] = ![ suc n , st ]
-  execInstr (UNMARK _) ![ suc n , st ] = ![ n     , st ]
-  execInstr (UNMARK h) ![ zero  , st ] = execCode h ✓[ st ]
+-- Exception handling: trivial
+exec (THROW  ◅ is) ![     n , st ] = exec is ![     n , st ]
+exec (PUSH x ◅ is) ![     n , st ] = exec is ![     n , st ]
+exec (ADD    ◅ is) ![     n , st ] = exec is ![     n , st ]
+exec (MARK   ◅ is) ![     n , st ] = exec is ![ suc n , st ]
+exec (HANDLE ◅ is) ![ suc n , st ] = exec is ![     n , st ]
 
-  -- Trivial exception processing: instruction skipping
-  execInstr THROW    ![ n , st ] = ![ n , st ]
-  execInstr ADD      ![ n , st ] = ![ n , st ]
-  execInstr (PUSH _) ![ n , st ] = ![ n , st ]
+-- Exception handling: run the handler on exception
+exec (HANDLE ◅ is) ![ zero , st ] = exec is ✓[ st ]
 
-  -- Code execution
-  -- This is a left fold over instructions.
-  execCode : ∀ {s t} → Code s t → State s → State t
-  execCode ε        st = st
-  execCode (i ◅ is) st = execCode is (execInstr i st)
-
-
+-- Exception handling: no exception, skip the handler
+exec (HANDLE ◅ is) ✓[ x :: ■!! st ] = {!!}
