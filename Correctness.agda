@@ -14,7 +14,10 @@ open import Code
 open import Compiler
 open import Execution
 
+
 module Utils where
+  open Execution.MachineState public
+
   -- Smart stack pusher
   infixr 5 _:::_
   _:::_ : ∀ {u s} → Maybe (el u) → State s → State (Val u ∷ s)
@@ -64,10 +67,10 @@ lemma-catch e h ×[ u' , n , st ] | just x | just y = refl
 lemma-catch e h ×[ u' , n , st ] | just x | nothing = refl
 lemma-catch e h st | nothing with denExp h
 lemma-catch e h ✓[ st ] | nothing | just x = refl
-lemma-catch e h ![ n , st ] | nothing | just x = refl
-lemma-catch e h ×[ u' , n , st ] | nothing | just x = refl
 lemma-catch e h ✓[ st ] | nothing | nothing = refl
+lemma-catch e h ![ n , st ] | nothing | just x = refl
 lemma-catch e h ![ n , st ] | nothing | nothing = refl
+lemma-catch e h ×[ u' , n , st ] | nothing | just x = refl
 lemma-catch e h ×[ u' , n , st ] | nothing | nothing = refl
 
 -- ** The main correctness theorem **
