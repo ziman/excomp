@@ -15,7 +15,7 @@ open import Expression
 open import Denotation
 open import Code
 
--- Unwind the shape up to just below the top-most handler.
+-- Unwind the shape up to just below the n-th handle-mark from the top.
 unwindShape : Shape → ℕ → Shape
 unwindShape (Han _ ∷ xs)  zero   = xs
 unwindShape (Han _ ∷ xs) (suc n) = unwindShape xs n
@@ -23,7 +23,7 @@ unwindShape (Skp _ ∷ xs)  n      = unwindShape xs n
 unwindShape (Val _ ∷ xs)  n      = unwindShape xs n
 unwindShape []            _      = []
 
--- Unwind the stack up to just below the top-most handler.
+-- Unwind the stack up to just below the n-th handle-mark from the top.
 unwindStack : ∀ {s} → Stack s → (n : ℕ) → Stack (unwindShape s n)
 unwindStack (han _ :: xs)  zero   = xs
 unwindStack (han _ :: xs) (suc n) = unwindStack xs n
@@ -31,6 +31,7 @@ unwindStack (skp _ :: xs)  n      = unwindStack xs n
 unwindStack (    _ :: xs)  n      = unwindStack xs n
 unwindStack  snil          _      = snil
 
+-- Shape of the stack after skipping the n-th handler from the top.
 skipShape : Shape → ℕ → Shape
 skipShape (Han _ ∷ xs)  n      = skipShape xs n
 skipShape (Skp u ∷ xs)  zero   = Val u ∷ xs
@@ -40,8 +41,11 @@ skipShape []            _      = []
 
 -- Execution state of the virtual machine.
 data State (s : Shape) : Set where
+  -- Normal operation
   ✓[_] : Stack s → State s
+  -- Exceptional state
   ![_,_] : (n : ℕ) → Stack (unwindShape s n) → State s
+  -- Handler skipping (forward jump)
   ×[_,_,_] : (u : U) → (n : ℕ) → Stack (skipShape s n) → State s
 
 exec : ∀ {s t} → Code s t → State s → State t
