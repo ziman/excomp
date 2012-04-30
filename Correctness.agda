@@ -30,22 +30,6 @@ distr : ∀ {s t u} (st : State s) (c : Code s t) (d : Code t u)
 distr st ε d = refl
 distr st (i ◅ is) d rewrite distr (execInstr i st) is d = refl
 
-{-
--- Central case analysis for exception handlers
-lemma-catch : ∀ {s u} (e : Exp u) (h : Exp u) (st : State s)
-  → (∀ {s} (st' : State s) → execCode (compile h) st' ≡ denExp h ::: st')
-  → execInstr (UNMARK (compile h)) (denExp e ::: execInstr MARK st) ≡ denExp (Catch e h) ::: st
-lemma-catch e h st pf with denExp e
-lemma-catch e h ✓[ st ] pf | just x = refl
-lemma-catch e h ![ n , st ] pf | just x = refl
-lemma-catch e h ✓[ st ] pf | nothing with denExp h
-lemma-catch e h ✓[ st ] pf | nothing | just x  = pf ✓[ st ]
-lemma-catch e h ✓[ st ] pf | nothing | nothing = pf ✓[ st ]
-lemma-catch e h ![ n , st ] pf | nothing with denExp h
-lemma-catch e h ![ n , st ] pf | nothing | just x  = refl
-lemma-catch e h ![ n , st ] pf | nothing | nothing = refl
--}
-
 -- Central case analysis for binary operators
 lemma-op : ∀ {s t u v} (r : Exp t) (l : Exp u) (op : Op u t v) (st : State s)
   → execInstr (opInstr op) (denExp l ::: denExp r ::: st) ≡ denExp (Bin op l r) ::: st
@@ -63,10 +47,25 @@ lemma-op r l Plus ×[ u , n , st ] | just x  | nothing = refl
 lemma-op r l Plus ×[ u , n , st ] | nothing | just y  = refl
 lemma-op r l Plus ×[ u , n , st ] | nothing | nothing = refl
 
+-- Central case analysis for catch-blocks
 lemma-catch : ∀ {u s} (e h : Exp u) (st : State s)
   → execInstr UNMARK (denExp h ::: execInstr HANDLE (denExp e ::: execInstr MARK st))
     ≡ denExp (Catch e h) ::: st
-lemma-catch e h st = {!!}
+lemma-catch e h st with denExp e
+lemma-catch e h st | just x with denExp h
+lemma-catch e h ✓[ st ] | just x | just y = refl
+lemma-catch e h ✓[ st ] | just x | nothing = refl
+lemma-catch e h ![ n , st ] | just x | just y = refl
+lemma-catch e h ![ n , st ] | just x | nothing = refl
+lemma-catch e h ×[ u' , n , st ] | just x | just y = refl
+lemma-catch e h ×[ u' , n , st ] | just x | nothing = refl
+lemma-catch e h st | nothing with denExp h
+lemma-catch e h ✓[ st ] | nothing | just x = refl
+lemma-catch e h ![ n , st ] | nothing | just x = refl
+lemma-catch e h ×[ u' , n , st ] | nothing | just x = refl
+lemma-catch e h ✓[ st ] | nothing | nothing = refl
+lemma-catch e h ![ n , st ] | nothing | nothing = refl
+lemma-catch e h ×[ u' , n , st ] | nothing | nothing = refl
 
 -- ** The main correctness theorem **
 correctness : ∀ {u} (e : Exp u) {s : Shape} (st : State s)
