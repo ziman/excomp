@@ -51,40 +51,38 @@ module MachineState where
 
 open MachineState
 
--- Instruction execution
-execInstr : ∀ {s t} → Instr s t → State s → State t
-
--- Normal operation
-execInstr (PUSH  x ) ✓[           st ] = ✓[    x    :: st ]
-execInstr  ADD       ✓[ x :: y :: st ] = ✓[ (x + y) :: st ]
-execInstr (MARK {u}) ✓[           st ] = ✓[ han u :: skp u :: st ]
-execInstr  THROW     ✓[           st ] = ![ zero , unwindStack st zero ]
-execInstr  UNMARK    ✓[ x :: skp u :: st ] = ✓[    x    :: st ]
+-- Normal instruction execution
+execInstr : ∀ {s t} → Instr s t → Stack s → State t
+execInstr (PUSH  x )                st  = ✓[ x :: st ]
+execInstr  ADD       (x ::     y :: st) = ✓[ (x + y) :: st ]
+execInstr (MARK {u})                st  = ✓[ han u :: skp u :: st ]
+execInstr  THROW                    st  = ![ zero , unwindStack st zero ]
+execInstr  UNMARK    (x :: skp u :: st) = ✓[ x :: st ]
+execInstr  HANDLE    (x :: han u :: skp .u :: st) = ×[ u , zero , x :: st ] -- no exception, skip handler
   
--- Exception handling: trivial
-execInstr  THROW   ![     n , st ] = ![     n , st ]
-execInstr (PUSH x) ![     n , st ] = ![     n , st ]
-execInstr  ADD     ![     n , st ] = ![     n , st ]
-execInstr  UNMARK  ![     n , st ] = ![     n , st ]
-execInstr  MARK    ![     n , st ] = ![ suc n , st ]
-execInstr  HANDLE  ![ suc n , st ] = ![     n , st ]
+-- Exception handling
+handle : ∀ {s t} → Instr s t → (n : ℕ) → Stack (unwindShape s n) → State t
+handle  THROW        n  st = ![     n , st ]
+handle (PUSH x)      n  st = ![     n , st ]
+handle  ADD          n  st = ![     n , st ]
+handle  UNMARK       n  st = ![     n , st ]
+handle  MARK         n  st = ![ suc n , st ]
+handle  HANDLE  (suc n) st = ![     n , st ]
+handle  HANDLE    zero  st = ✓[ st ]          -- run the handler on exception
   
 -- Forward jump: trivial
-execInstr  THROW   ×[ u , n , st ] = ×[ u , n , st ]
-execInstr (PUSH x) ×[ u , n , st ] = ×[ u , n , st ]
-execInstr  ADD     ×[ u , n , st ] = ×[ u , n , st ]
-execInstr  HANDLE  ×[ u , n , st ] = ×[ u , n , st ]
-execInstr  MARK    ×[ u , n , st ] = ×[ u , suc n , st ]
-execInstr  UNMARK  ×[ u , suc n , st ] = ×[ u , n , st ]
-execInstr  UNMARK  ×[ u , zero  , st ] = ✓[ st ]
+skip : ∀ {s t} → Instr s t → (u : U) → (n : ℕ) → Stack (skipShape s n) → State t
+skip  THROW   u      n  st = ×[ u , n , st ]
+skip (PUSH x) u      n  st = ×[ u ,     n , st ]
+skip  ADD     u      n  st = ×[ u ,     n , st ]
+skip  HANDLE  u      n  st = ×[ u ,     n , st ]
+skip  MARK    u      n  st = ×[ u , suc n , st ]
+skip  UNMARK  u (suc n) st = ×[ u ,     n , st ]
+skip  UNMARK  u   zero  st = ✓[ st ]
   
--- Exception handling: run the handler on exception
-execInstr HANDLE ![ zero , st ] = ✓[ st ]
-  
--- Exception handling: no exception, skip the handler, keeping the current stack
-execInstr HANDLE ✓[ x :: han u :: skp .u :: st ] = ×[ u , zero , x :: st ]
-
 -- Execution of code is nothing more than a left fold
 execCode : ∀ {s t} → Code s t → State s → State t
 execCode ε st = st
-execCode (i ◅ is) st = execCode is (execInstr i st)
+execCode (i ◅ is) ✓[ st ] = execCode is (execInstr i st)
+execCode (i ◅ is) ![ n , st ] = execCode is (handle i n st)
+execCode (i ◅ is) ×[ u , n , st ] = execCode is (skip i u n st)
