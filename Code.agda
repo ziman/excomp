@@ -6,6 +6,7 @@ open import Data.Sum
 open import Data.Maybe
 open import Data.Star
 open import Data.Unit
+open import Data.Nat
 
 open import TypeUniverse
 open import Expression
@@ -33,6 +34,10 @@ mutual
   -- Code is an (indexed) list of instructions.
   Code : Shape → Shape → Set
   Code = Star Instr
+
+size : ∀ {s t} → Code s t → ℕ
+size ε = zero
+size (_ ◅ is) = 1 + size is
 
 infixr 50 _::_ han_::_ skp_::_
 data Stack : Shape → Set where

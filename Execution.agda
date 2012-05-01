@@ -81,8 +81,9 @@ skip  UNMARK  u (suc n) st = ×[ u ,     n , st ]
 skip  UNMARK  u   zero  st = ✓[ st ]
   
 -- Execution of code is nothing more than a left fold
-execCode : ∀ {s t} → Code s t → State s → State t
-execCode ε st = st
-execCode (i ◅ is) ✓[         st ] = execCode is (execInstr i     st)
-execCode (i ◅ is) ![     n , st ] = execCode is (handle    i   n st)
-execCode (i ◅ is) ×[ u , n , st ] = execCode is (skip      i u n st)
+execCode : ∀ {s t} → (c : Code s t) → (m : ℕ) → m ≥ size c → State s → State t
+execCode ε m pf st = st
+execCode (i ◅ is) zero () st
+execCode (i ◅ is) (suc m) (s≤s pf) ✓[         st ] = execCode is m pf (execInstr i     st)
+execCode (i ◅ is) (suc m) (s≤s pf) ![     n , st ] = execCode is m pf (handle    i   n st)
+execCode (i ◅ is) (suc m) (s≤s pf) ×[ u , n , st ] = execCode is m pf (skip      i u n st)
