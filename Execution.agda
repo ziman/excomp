@@ -79,6 +79,16 @@ skip  HANDLE  u      n  st = ×[ u ,     n , st ]
 skip  MARK    u      n  st = ×[ u , suc n , st ]
 skip  UNMARK  u (suc n) st = ×[ u ,     n , st ]
 skip  UNMARK  u   zero  st = ✓[ st ]
+
+skipHandler : ∀ {s t} → Code s t → (n : ℕ) → Code (skipShape s n) t
+skipHandler ε n = ε
+skipHandler (THROW  ◅ is) n = skipHandler is n
+skipHandler (PUSH _ ◅ is) n = skipHandler is n
+skipHandler (ADD    ◅ is) n = skipHandler is n
+skipHandler (HANDLE ◅ is) n = skipHandler is n
+skipHandler (MARK   ◅ is) n = skipHandler is (suc n)
+skipHandler (UNMARK ◅ is) (suc n) = skipHandler is n
+skipHandler (UNMARK ◅ is)  zero   = is
   
 -- Execution of code is nothing more than a left fold
 execCode : ∀ {s t} → (c : Code s t) → (m : ℕ) → m ≥ size c → State s → State t
@@ -86,4 +96,4 @@ execCode ε m pf st = st
 execCode (i ◅ is) zero () st
 execCode (i ◅ is) (suc m) (s≤s pf) ✓[         st ] = execCode is m pf (execInstr i     st)
 execCode (i ◅ is) (suc m) (s≤s pf) ![     n , st ] = execCode is m pf (handle    i   n st)
-execCode (i ◅ is) (suc m) (s≤s pf) ×[ u , n , st ] = execCode is m pf (skip      i u n st)
+execCode (i ◅ is) (suc m) (s≤s pf) ×[ u , n , st ] = execCode (skipHandler is zero) m ? ✓[ st ]
