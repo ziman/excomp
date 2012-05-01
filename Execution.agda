@@ -83,6 +83,6 @@ skip  UNMARK  u   zero  st = ✓[ st ]
 -- Execution of code is nothing more than a left fold
 execCode : ∀ {s t} → Code s t → State s → State t
 execCode ε st = st
-execCode (i ◅ is) ✓[ st ] = execCode is (execInstr i st)
-execCode (i ◅ is) ![ n , st ] = execCode is (handle i n st)
-execCode (i ◅ is) ×[ u , n , st ] = execCode is (skip i u n st)
+execCode (i ◅ is) ✓[         st ] = execCode is (execInstr i     st)
+execCode (i ◅ is) ![     n , st ] = execCode is (handle    i   n st)
+execCode (i ◅ is) ×[ u , n , st ] = execCode is (skip      i u n st)
