@@ -2,6 +2,7 @@ module Code where
 
 open import Function
 open import Data.List
+open import Data.Star
 
 open import TypeUniverse
 open import Expression
@@ -17,19 +18,12 @@ data Instr : Shape → Shape → Set where
   ADD  : ∀ {s} → Instr (Nat ∷ Nat ∷ s) (Nat ∷ s)
 
 -- Code is an (indexed) list of instructions.
-infixr 5 _,,_
-data Code : Shape → Shape → Set where
-  cnil : ∀ {s} → Code s s
-  _,,_ : ∀ {s t u} → Instr s t → Code t u → Code s u
+Code : Shape → Shape → Set
+Code = Star Instr
 
 -- Stack is a shape-indexed... well, stack.
-infixr 5 _::_
+infixr 5 _:-:_
 data Stack : Shape → Set where
   ∅ : Stack []
-  _::_ : ∀ {u s} → el u → Stack s → Stack (u ∷ s)
+  _:-:_ : ∀ {u s} → el u → Stack s → Stack (u ∷ s)
 
--- Code concatenation.
-infixr 6 _⊕_
-_⊕_ : ∀ {s t u} → Code s t → Code t u → Code s u
-_⊕_ cnil      cs = cs
-_⊕_ (i ,, is) cs = i ,, (is ⊕ cs)

@@ -3,6 +3,7 @@ module Correctness where
 open import Function
 open import Data.Nat
 open import Data.List
+open import Data.Star
 open import Relation.Binary.PropositionalEquality
 
 open import TypeUniverse
@@ -14,48 +15,54 @@ open import Execution
 
 -- Correctness of operator translation. Because of the way how the translation
 -- is written, this is not "free" and must be proved for each operator.
-op-correct : ∀ {u v w q st} {x : el u} {y : el v} (op : Op u v w)
-  → exec-instr (opInstr {u} {v} {w} {q} op) (x :: y :: st) ≡ denOp op x y :: st
+op-correct : ∀ {s u v w} {st : Stack s} {x : el u} {y : el v} (op : Op u v w)
+  → execInstr (opInstr op) (x :-: y :-: st) ≡ denOp op x y :-: st
 op-correct Plus = refl
 
 -- Exec distributes over ⊕.
 compile-distr : ∀ {t u v} (code₁ : Code t u) (code₂ : Code u v) (st : Stack t)
-  → exec (code₁ ⊕ code₂) st ≡ exec code₂ (exec code₁ st)
-compile-distr cnil      cs st = refl
-compile-distr (i ,, is) cs st = begin
-    exec ((i ,, is) ⊕ cs) st
+  → execCode (code₁ ◅◅ code₂) st ≡ execCode code₂ (execCode code₁ st)
+compile-distr ε cs st = refl
+compile-distr (i ◅ is) cs st = begin
+    execCode ((i ◅ is) ◅◅ cs) st
       ≡⟨ refl ⟩
-    exec (is ⊕ cs) (exec-instr i st)
+    execCode (is ◅◅ cs) (execInstr i st)
       ≡⟨ compile-distr is cs _ ⟩
-    exec cs (exec is (exec-instr i st))
+    execCode cs (execCode is (execInstr i st))
       ≡⟨ refl ⟩
-    exec cs (exec (i ,, is) st)
+    execCode cs (execCode (i ◅ is) st)
       ∎
   where
     open ≡-Reasoning
 
+-- Alternative proof of compile-distr.
+compile-distr' : ∀ {t u v} (code₁ : Code t u) (code₂ : Code u v) (st : Stack t)
+  → execCode (code₁ ◅◅ code₂) st ≡ execCode code₂ (execCode code₁ st)
+compile-distr' ε cs st = refl
+compile-distr' (i ◅ is) cs st rewrite compile-distr' is cs (execInstr i st) = refl
+
 -- The main correctness theorem: executing compiled code is equivalent
 -- to pushing the correspondent denotation to the stack.
-correctness : ∀ {u s} (e : Exp u) (st : Stack s) → exec (compile e) st ≡ denExp e :: st
+correctness : ∀ {u s} (e : Exp u) (st : Stack s) → execCode (compile e) st ≡ denExp e :-: st
 correctness (Lit x)      _  = refl
 correctness (Bin op l r) st = begin
-    exec (compile (Bin op l r)) st
+    execCode (compile (Bin op l r)) st
       ≡⟨ refl ⟩
-    exec (compile r ⊕ compile l ⊕ single (opInstr op)) st
-      ≡⟨ compile-distr (compile r) (compile l ⊕ single (opInstr op)) st ⟩
-    exec (compile l ⊕ single (opInstr op)) (exec (compile r) st)
-      ≡⟨ compile-distr (compile l) (single (opInstr op)) _ ⟩
-    exec (single (opInstr op)) (exec (compile l) (exec (compile r) st))
-      ≡⟨ cong (λ z → exec (single (opInstr op)) (exec (compile l) z)) (correctness r st) ⟩
-    exec (single (opInstr op)) (exec (compile l) (denExp r :: st))
-      ≡⟨ cong (λ z → exec (single (opInstr op)) z) (correctness l (denExp r :: st)) ⟩
-    exec (single (opInstr op)) (denExp l :: denExp r :: st)
+    execCode (compile r ◅◅ compile l ◅◅ ⟦ opInstr op ⟧) st
+      ≡⟨ compile-distr (compile r) _ _ ⟩
+    execCode (compile l ◅◅ ⟦ opInstr op ⟧) (execCode (compile r) st)
+      ≡⟨ compile-distr (compile l) _ _ ⟩
+    execCode ⟦ opInstr op ⟧ (execCode (compile l) (execCode (compile r) st))
+      ≡⟨ cong (λ z → execCode ⟦ opInstr op ⟧ (execCode (compile l) z)) (correctness r st) ⟩
+    execCode ⟦ opInstr op ⟧ (execCode (compile l) (denExp r :-: st))
+      ≡⟨ cong (λ z → execCode ⟦ opInstr op ⟧ z) (correctness l (denExp r :-: st)) ⟩
+    execCode ⟦ opInstr op ⟧ (denExp l :-: denExp r :-: st)
       ≡⟨ refl ⟩
-    exec-instr (opInstr op) (denExp l :: denExp r :: st)
+    execInstr (opInstr op) (denExp l :-: denExp r :-: st)
       ≡⟨ op-correct op ⟩
-    denOp op (denExp l) (denExp r) :: st
+    denOp op (denExp l) (denExp r) :-: st
       ≡⟨ refl ⟩
-    denExp (Bin op l r) :: st
+    denExp (Bin op l r) :-: st
       ∎
   where
     open ≡-Reasoning
