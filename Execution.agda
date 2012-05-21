@@ -21,20 +21,20 @@ unwindHnd (_ ∷ xs)  zero   = xs
 unwindHnd (_ ∷ xs) (suc n) = unwindHnd xs n
 
 unwindShape : ∀ us → Shape' us → (n : ℕ) → Shape' (unwindHnd us n)
-unwindShape (u ∷ us) (.u h'∷ xs)  zero   = xs
-unwindShape  us      (_  v'∷ xs)  n      = unwindShape us xs n
+unwindShape      []          xs       n  = nilShape'
+unwindShape (u ∷ us) (.u h'∷ xs)   zero  = xs
+unwindShape      us  (_  v'∷ xs)      n  = unwindShape us xs n
 unwindShape (u ∷ us) (.u h'∷ xs) (suc n) = unwindShape us xs n
-unwindShape []        nilShape'   n      = nilShape'
 
 -- Unwind the stack up to just below the top-most handler.
 unwindStack : ∀ {u : U} {us : List U} {s : Shape' (u ∷ us)}
   → Stack (u ∷ us , s)
   → (n : ℕ)
   → Stack (unwindHnd (u ∷ us) n , unwindShape (u ∷ us) s n)
-unwindStack {u} {us} {.u h'∷ sh} (h !! xs) zero    = xs
-unwindStack {u} {[]} {.u h'∷ sh} (h !! xs) (suc n) = unwindStack xs n
+unwindStack {u} {    us} {.u h'∷ sh} (h !! xs)   zero  = xs
 unwindStack {u} {v ∷ us} {.u h'∷ sh} (h !! xs) (suc n) = unwindStack xs n
-unwindStack {u} {us} { v v'∷ sh} (x :: xs) n       = unwindStack xs n
+unwindStack {u} {    []} {.u h'∷ sh} (h !! xs) (suc n) = snil
+unwindStack {u} {    us} { v v'∷ sh} (x :: xs)      n  = unwindStack xs n
 
 {-
 -- Execution state of the virtual machine.
