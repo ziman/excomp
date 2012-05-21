@@ -41,10 +41,10 @@ data State : Shape → Set where
   -- Normal operation: plain old stack.
   ✓[_] : ∀ {s} → Stack s → State s
   -- Caught exception.
-  ![_,_] : (n : ℕ) {u : U} {us : List U} {s' : Shape' us}
-    → Stack (us , unwindShape us s' n) → State (u ∷ us , s')
+  ![_,_] : (n : ℕ) {u : U} {us : List U} {s' : Shape' (u ∷ us)}
+    → Stack (unwindHnd (u ∷ us) n , unwindShape (u ∷ us) s' n) → State (u ∷ us , s')
   -- Uncaught exception.
-  ×[] : ∀ {s} → State ([] , s)
+  ×[_] : (n : ℕ) {us : List U} → State ([] , s)
 
 mutual
   -- Instruction execution
@@ -58,17 +58,21 @@ mutual
 
   -- Exception throwing
   -- Unwind the stack, creating a resumption point. Instruction skipping begins.
-  execInstr THROW ✓[ st ] = ![ zero , unwindStack st zero  ]
+  execInstr {u ∷ us , sh} THROW ✓[ st ] = ![ zero , unwindStack st zero  ]
 
   -- Non-trivial exception processing
   execInstr (MARK _) ![ n     , st ] = ![ suc n , st ]
-  execInstr UNMARK   ![ suc n , st ] = ![ n     , st ]
+  execInstr .{u ∷ v ∷ us , u v'∷ u h'∷ sh} (UNMARK {u} {v ∷ us} {sh})   ![ suc n , st ] = ![ n , st ]
   execInstr UNMARK   ![ zero  , st ] = execCode ? ✓[ st ]
 
   -- Trivial exception processing: instruction skipping
-  execInstr THROW    ![ n , r ] = ![ n , r ]
-  execInstr ADD      ![ n , r ] = ![ n , r ]
+  execInstr  THROW   ![ n , r ] = ![ n , r ]
+  execInstr  ADD     ![ n , r ] = ![ n , r ]
   execInstr (PUSH _) ![ n , r ] = ![ n , r ]
+  execInstr  ADD     ×[] = ×[]
+  execInstr  THROW   ×[] = ×[]
+  execInstr (PUSH _) ×[] = ×[]
+  execInstr (MARK _) ×[] = ×[]
 
   -- Code execution
   -- This is a left fold over instructions.

@@ -33,9 +33,9 @@ mutual
   -- Instructions of the stack machine.
   data Instr : Shape → Shape → Set where
     PUSH : ∀ {u s} → el u → Instr s (u v∷ s)
-    ADD : ∀ {s} → Instr (Nat v∷ Nat v∷ s) (Nat v∷ s)
+    ADD : ∀ {us sh} → Instr (us , Nat v'∷ Nat v'∷ sh) (us , Nat v'∷ sh)
     MARK : ∀ {u s} → Code s (u v∷ s) → Instr s (u h∷ s)
-    UNMARK : ∀ {u s} → Instr (u v∷ u h∷ s) (u v∷ s)
+    UNMARK : ∀ {u us sh} → Instr (u ∷ us , u v'∷ u h'∷ sh) (us , u v'∷ sh)
     THROW : ∀ {u s} → Instr s (u v∷ s)
 
   -- Code is an (indexed) list of instructions.
