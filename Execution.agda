@@ -36,15 +36,13 @@ unwindStack {u} {v ∷ us} {.u h'∷ sh} (h !! xs) (suc n) = unwindStack xs n
 unwindStack {u} {    []} {.u h'∷ sh} (h !! xs) (suc n) = snil
 unwindStack {u} {    us} { v v'∷ sh} (x :: xs)      n  = unwindStack xs n
 
-{-
 -- Execution state of the virtual machine.
 data State : Shape → Set where
   -- Normal operation: plain old stack.
   ✓[_] : ∀ {s} → Stack s → State s
   -- Caught exception.
-  ![_,_,_] : (n : ℕ) {u : U} {us : List U} {s' : Shape' us}
-    → let s = us , s' in
-      Code s (u v∷ s) → Stack s → State s
+  ![_,_] : (n : ℕ) {u : U} {us : List U} {s' : Shape' us}
+    → Stack (us , unwindShape us s' n) → State (u ∷ us , s')
   -- Uncaught exception.
   ×[] : ∀ {s} → State ([] , s)
 
@@ -63,9 +61,9 @@ mutual
   execInstr THROW ✓[ st ] = ![ zero , unwindStack st zero  ]
 
   -- Non-trivial exception processing
-  execInstr (MARK _) ![ n     , r         ] = ![ suc n , r ]
-  execInstr UNMARK   ![ suc n , r         ] = ![ n     , r ]
-  execInstr UNMARK   ![ zero  , Okay h st ] = execCode h ✓[ st ]
+  execInstr (MARK _) ![ n     , st ] = ![ suc n , st ]
+  execInstr UNMARK   ![ suc n , st ] = ![ n     , st ]
+  execInstr UNMARK   ![ zero  , st ] = execCode ? ✓[ st ]
 
   -- Trivial exception processing: instruction skipping
   execInstr THROW    ![ n , r ] = ![ n , r ]
@@ -77,4 +75,3 @@ mutual
   execCode : ∀ {s t} → Code s t → State s → State t
   execCode ε        st = st
   execCode (i ◅ is) st = execCode is (execInstr i st)
--}
