@@ -15,40 +15,38 @@ open import Expression
 open import Denotation
 open import Code
 
--- Get the type of the top-most handler in the Shape.
-unwindHnd : Shape → ℕ → Maybe U
-unwindHnd (Han u ∷ xs) zero    = just u
-unwindHnd (Han _ ∷ xs) (suc n) = unwindHnd xs n
-unwindHnd (Val _ ∷ xs) n       = unwindHnd xs n
-unwindHnd []           _       = nothing
+unwindHnd : List U → ℕ → List U
+unwindHnd []        n      = []
+unwindHnd (_ ∷ xs)  zero   = xs
+unwindHnd (_ ∷ xs) (suc n) = unwindHnd xs n
 
--- Unwind the shape up to just below the top-most handler.
-unwindShape : Shape → ℕ → Shape
-unwindShape (Han _ ∷ xs) zero    = xs
-unwindShape (Han _ ∷ xs) (suc n) = unwindShape xs n
-unwindShape (Val _ ∷ xs) n       = unwindShape xs n
-unwindShape []           _       = []
-
--- Normal operation resumption point.
-data Resume (s : Shape) : Maybe U → Set where
-  -- A handler is available, also remember the stack on which the handler should operate.
-  Okay : ∀ {u} → Code s (Val u ∷ s) → Stack s → Resume s (just u)
-  -- Uncaught throw.
-  Fail : Resume s nothing
+unwindShape : ∀ us → Shape' us → (n : ℕ) → Shape' (unwindHnd us n)
+unwindShape (u ∷ us) (.u h'∷ xs)  zero   = xs
+unwindShape  us      (_  v'∷ xs)  n      = unwindShape us xs n
+unwindShape (u ∷ us) (.u h'∷ xs) (suc n) = unwindShape us xs n
+unwindShape []        nilShape'   n      = nilShape'
 
 -- Unwind the stack up to just below the top-most handler.
-unwindStack : ∀ {s} → Stack s → (n : ℕ) → Resume (unwindShape s n) (unwindHnd s n)
-unwindStack (h !! xs) zero    = Okay h xs
-unwindStack (_ !! xs) (suc n) = unwindStack xs n
-unwindStack (_ :: xs) n       = unwindStack xs n
-unwindStack snil      _       = Fail
+unwindStack : ∀ {u : U} {us : List U} {s : Shape' (u ∷ us)}
+  → Stack (u ∷ us , s)
+  → (n : ℕ)
+  → Stack (unwindHnd (u ∷ us) n , unwindShape (u ∷ us) s n)
+unwindStack {u} {us} {.u h'∷ sh} (h !! xs) zero    = xs
+unwindStack {u} {[]} {.u h'∷ sh} (h !! xs) (suc n) = unwindStack xs n
+unwindStack {u} {v ∷ us} {.u h'∷ sh} (h !! xs) (suc n) = unwindStack xs n
+unwindStack {u} {us} { v v'∷ sh} (x :: xs) n       = unwindStack xs n
 
+{-
 -- Execution state of the virtual machine.
-data State (s : Shape) : Set where
+data State : Shape → Set where
   -- Normal operation: plain old stack.
-  ✓[_] : Stack s → State s
-  -- Exceptional state: skip instructions until the corresponding UNMARK and then resume.
-  ![_,_] : (n : ℕ) → Resume (unwindShape s n) (unwindHnd s n) → State s
+  ✓[_] : ∀ {s} → Stack s → State s
+  -- Caught exception.
+  ![_,_,_] : (n : ℕ) {u : U} {us : List U} {s' : Shape' us}
+    → let s = us , s' in
+      Code s (u v∷ s) → Stack s → State s
+  -- Uncaught exception.
+  ×[] : ∀ {s} → State ([] , s)
 
 mutual
   -- Instruction execution
@@ -79,5 +77,4 @@ mutual
   execCode : ∀ {s t} → Code s t → State s → State t
   execCode ε        st = st
   execCode (i ◅ is) st = execCode is (execInstr i st)
-
-
+-}
