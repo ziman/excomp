@@ -43,6 +43,10 @@ data State (r : Shape) : Set where
   ✓[_,_] : ∀ {s hs} → Code (s , hs) (r , []) → Stack s → State r
   ×[] : State r
 
+data Result (r : Shape) : Set where
+  Success : Stack r → Result r
+  Failure : Result r
+
 
 
 

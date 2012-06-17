@@ -23,36 +23,47 @@ unwindShape (Han _ ∷ xs)  = just xs
 unwindShape (Val _ ∷ xs)  = unwindShape xs
 unwindShape []            = nothing
 
-infix 2 _⟨$⟩_
-_⟨$⟩_ : ∀ {a : Set} → (F : a → Set) → (x : Maybe a) → Set
-F ⟨$⟩ nothing = ⊤
-F ⟨$⟩ just x  = F x
+unwindCShape : ∀ {u s hs r} → (us : List U) → Code (s , u ∷ us ++ hs) (r , []) → Shape
+unwindCShape us (PUSH x ◅ is) = unwindCShape us is
+unwindCShape us (ADD    ◅ is) = unwindCShape us is
+unwindCShape us (THROW  ◅ is) = unwindCShape us is
+unwindCShape {u} us (MARK h ◅ is) = unwindCShape (u ∷ us) is
+unwindCShape {u} (v ∷ us) (UNMARK ◅ is) = unwindCShape us is
+unwindCShape {u} {Val .u ∷ Han .u ∷ s} {hs} [] (UNMARK ◅ is) = s
 
-unwindCode : ∀ {s r} → Code s r → Maybe ((λ s' → Σ[ u ∶ U ] Code (Val u ∷ s') r) ⟨$⟩ unwindShape s)
-unwindCode {   []} ε = just tt
-unwindCode {u ∷ s} ε = nothing
-unwindCode (PUSH x ◅ is) = unwindCode is
-unwindCode (ADD    ◅ is) = unwindCode is
-unwindCode (THROW  ◅ is) = unwindCode is
-unwindCode (UNMARK ◅ is) = just (_ , is)
-unwindCode (MARK h ◅ is) = unwindCode {!unwindCode is!}
+unwindCode : ∀ {u s hs r} → (us : List U)
+  → (is : Code (s , u ∷ us ++ hs) (r , []))
+  → Code (unwindCShape [] is , hs) (r , [])
+unwindCode us (PUSH x ◅ is) = unwindCode us is
+unwindCode us (ADD    ◅ is) = unwindCode us is
+unwindCode us (THROW  ◅ is) = unwindCode us is
+unwindCode {u} us (MARK h ◅ is) = {!unwindCode (u ∷ us) is!}
+unwindCode us (UNMARK ◅ is) = {!!}
 
-step : ∀ {s t r} → (i : Instr s t) → (is : Code t r) → (st : Stack s) → State r
+step : ∀ {s hs t ht r}
+  → (i : Instr (s , hs) (t , ht))
+  → (is : Code (t , ht) (r , []))
+  → (st : Stack s)
+  → State r
 step (PUSH x) is            st  = ✓[ is ,   x   :: st ]
 step  ADD     is (x :: y :: st) = ✓[ is , x + y :: st ]
 step (MARK h) is            st  = ✓[ is ,   h   !! st ]
 step  UNMARK  is (x :: h !! st) = ✓[ is ,   x   :: st ]
-step {s} THROW is st with unwindShape s
+step {s} {hs = []     } THROW is st = ×[]
+step {s} {hs = u ∷ hs'} THROW is st with unwindShape s
 ... | nothing = ×[]
-... | just s' = ✓[ {!unwindCode s!} , {!!} ]
+... | just s' = ✓[ {!!} , {!!} ]
 
-step-decr : ∀ {s t r} (i : Instr s t) (is : Code t r) (st : Stack s)
+step-decr : ∀ {s hs t ht r}
+  → (i : Instr (s , hs) (t , ht))
+  → (is : Code (t , ht) (r , []))
+  → (st : Stack s)
   → measureState (step i is st) < measureState ✓[ i ◅ is , st ]
 step-decr i is st = {!!}
 
-run' : ∀ {r} → (st : State r) → Acc _<'_ st → State r
-run' ×[] _ = ×[]
-run' ✓[ ε      , st ] _ = ✓[ ε , st ]
+run' : ∀ {r} → (st : State r) → Acc _<'_ st → Result r
+run' ×[] _ = Failure
+run' ✓[ ε      , st ] _ = Success st
 run' ✓[ i ◅ is , st ] (acc acc-st)
     = run' nextState (acc-st nextState next<current)
   where
