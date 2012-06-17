@@ -1,6 +1,7 @@
 module Execution where
 
 open import Function
+open import Data.Unit
 open import Data.Nat
 open import Data.Sum
 open import Data.List
@@ -16,20 +17,43 @@ open import Denotation
 open import Machine
 open import Measure
 
+-- Unwind the shape up to just below the top-most handler.
+unwindShape : Shape → Maybe Shape
+unwindShape (Han _ ∷ xs)  = just xs
+unwindShape (Val _ ∷ xs)  = unwindShape xs
+unwindShape []            = nothing
+
+infix 2 _⟨$⟩_
+_⟨$⟩_ : ∀ {a : Set} → (F : a → Set) → (x : Maybe a) → Set
+F ⟨$⟩ nothing = ⊤
+F ⟨$⟩ just x  = F x
+
+unwindCode : ∀ {s r} → Code s r → Maybe ((λ s' → Σ[ u ∶ U ] Code (Val u ∷ s') r) ⟨$⟩ unwindShape s)
+unwindCode {   []} ε = just tt
+unwindCode {u ∷ s} ε = nothing
+unwindCode (PUSH x ◅ is) = unwindCode is
+unwindCode (ADD    ◅ is) = unwindCode is
+unwindCode (THROW  ◅ is) = unwindCode is
+unwindCode (UNMARK ◅ is) = just (_ , is)
+unwindCode (MARK h ◅ is) = unwindCode {!unwindCode is!}
+
 step : ∀ {s t r} → (i : Instr s t) → (is : Code t r) → (st : Stack s) → State r
-step (PUSH x) is            st  = state _ is (  x   :: st)
-step  ADD     is (x :: y :: st) = state _ is (x + y :: st)
-step (MARK h) is            st  = state _ is (  h   !! st)
-step  UNMARK  is (x :: h !! st) = state _ is (  x   :: st)
-step  THROW   is st = {!!}
+step (PUSH x) is            st  = ✓[ is ,   x   :: st ]
+step  ADD     is (x :: y :: st) = ✓[ is , x + y :: st ]
+step (MARK h) is            st  = ✓[ is ,   h   !! st ]
+step  UNMARK  is (x :: h !! st) = ✓[ is ,   x   :: st ]
+step {s} THROW is st with unwindShape s
+... | nothing = ×[]
+... | just s' = ✓[ {!unwindCode s!} , {!!} ]
 
 step-decr : ∀ {s t r} (i : Instr s t) (is : Code t r) (st : Stack s)
-  → measureState (step i is st) < measureState (state s (i ◅ is) st)
+  → measureState (step i is st) < measureState ✓[ i ◅ is , st ]
 step-decr i is st = {!!}
 
-run' : ∀ {r} → (st : State r) → Acc _<'_ st → Result r
-run' (state _ ε st) _ = Success st
-run' (state s (i ◅ is) st) (acc acc-st)
+run' : ∀ {r} → (st : State r) → Acc _<'_ st → State r
+run' ×[] _ = ×[]
+run' ✓[ ε      , st ] _ = ✓[ ε , st ]
+run' ✓[ i ◅ is , st ] (acc acc-st)
     = run' nextState (acc-st nextState next<current)
   where
     nextState = step i is st
@@ -44,13 +68,6 @@ unwindHnd (Han u ∷ xs) zero    = just u
 unwindHnd (Han _ ∷ xs) (suc n) = unwindHnd xs n
 unwindHnd (Val _ ∷ xs) n       = unwindHnd xs n
 unwindHnd []           _       = nothing
-
--- Unwind the shape up to just below the top-most handler.
-unwindShape : Shape → ℕ → Shape
-unwindShape (Han _ ∷ xs) zero    = xs
-unwindShape (Han _ ∷ xs) (suc n) = unwindShape xs n
-unwindShape (Val _ ∷ xs) n       = unwindShape xs n
-unwindShape []           _       = []
 
 -- Normal operation resumption point.
 data Resume (s : Shape) : Maybe U → Set where

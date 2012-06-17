@@ -4,12 +4,13 @@ open import Function
 open import Data.Nat
 open import Data.Nat.Properties
 open import Data.Star
+open import Data.Product
 open import Induction.Nat renaming (<-well-founded to <′-well-founded)
 open import Induction.WellFounded
 
 open import Machine
 
-measureCode : ∀ {s t} → Code s t → ℕ
+measureCode : ∀ {s t hs ht} → Code (s , hs) (t , ht) → ℕ
 measureCode ε = zero
 measureCode (MARK h ◅ xs) = suc (measureCode h + measureCode xs)
 measureCode (x      ◅ xs) = suc (measureCode xs)
@@ -20,7 +21,8 @@ measureStack (x :: xs) = suc (measureStack xs)
 measureStack (h !! xs) = suc (measureCode h + measureStack xs)
 
 measureState : ∀ {r} → State r → ℕ
-measureState (state s code stack) = measureCode code + measureStack stack
+measureState ×[] = zero
+measureState ✓[ code , stack ] = measureCode code + measureStack stack
 
 module MeasureWF (a : Set) (measure : a → ℕ) where
   module <-<′-equivalence where
