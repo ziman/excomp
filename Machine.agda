@@ -1,4 +1,4 @@
-module Code where
+module Machine where
 
 open import Function
 open import Data.List
@@ -31,10 +31,23 @@ mutual
   Code : Shape → Shape → Set
   Code = Star Instr
 
-infixr 50 _::_
-infixr 50 _!!_
+infixr 3 _::_
+infixr 3 _!!_
 data Stack : Shape → Set where
   snil : Stack []
   _::_ : ∀ {u s} → el u → Stack s → Stack (Val u ∷ s)
   _!!_ : ∀ {u s} → Code s (Val u ∷ s) → Stack s → Stack (Han u ∷ s)
+
+record State (r : Shape) : Set where
+  constructor state
+  field
+    s : Shape
+    code : Code s r
+    stack : Stack s
+
+data Result (r : Shape) : Set where
+  Success : Stack r → Result r
+  Failure : Result r
+
+
 

@@ -7,14 +7,37 @@ open import Data.List
 open import Data.Star
 open import Data.Maybe
 open import Data.Product
-
 open import Relation.Binary.PropositionalEquality
+open import Induction.WellFounded as WF
 
 open import TypeUniverse
 open import Expression
 open import Denotation
-open import Code
+open import Machine
+open import Measure
 
+step : ∀ {s t r} → (i : Instr s t) → (is : Code t r) → (st : Stack s) → State r
+step (PUSH x) is            st  = state _ is (  x   :: st)
+step  ADD     is (x :: y :: st) = state _ is (x + y :: st)
+step (MARK h) is            st  = state _ is (  h   !! st)
+step  UNMARK  is (x :: h !! st) = state _ is (  x   :: st)
+step  THROW   is st = {!!}
+
+step-decr : ∀ {s t r} (i : Instr s t) (is : Code t r) (st : Stack s)
+  → measureState (step i is st) < measureState (state s (i ◅ is) st)
+step-decr i is st = {!!}
+
+run' : ∀ {r} → (st : State r) → Acc _<'_ st → Result r
+run' (state _ ε st) _ = Success st
+run' (state s (i ◅ is) st) (acc acc-st)
+    = run' nextState (acc-st nextState next<current)
+  where
+    nextState = step i is st
+    next<current = step-decr i is st
+
+
+
+{-
 -- Get the type of the top-most handler in the Shape.
 unwindHnd : Shape → ℕ → Maybe U
 unwindHnd (Han u ∷ xs) zero    = just u
@@ -49,7 +72,6 @@ data State (s : Shape) : Set where
   ✓[_] : Stack s → State s
   -- Exceptional state: skip instructions until the corresponding UNMARK and then resume.
   ![_,_] : (n : ℕ) → Resume (unwindShape s n) (unwindHnd s n) → State s
-
 mutual
   -- Instruction execution
   execInstr : ∀ {s t} → Instr s t → State s → State t
@@ -81,3 +103,4 @@ mutual
   execCode (i ◅ is) st = execCode is (execInstr i st)
 
 
+-}
