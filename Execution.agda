@@ -1,6 +1,7 @@
 module Execution where
 
 open import Function
+open import Data.Empty
 open import Data.Unit
 open import Data.Nat
 open import Data.Sum
@@ -23,22 +24,39 @@ unwindShape (Han _ ∷ xs)  = just xs
 unwindShape (Val _ ∷ xs)  = unwindShape xs
 unwindShape []            = nothing
 
+isJust : ∀ {a : Set} → Maybe a → Set
+isJust (just _) = ⊤
+isJust nothing  = ⊥
+
+_$$_ : ∀ {a : Set} → (F : a → Set) → (x : Maybe a) → Set
+F $$ just x = F x
+F $$ nothing = ⊥
+
+ij-lemma : ∀ {x st} → isJust (unwindShape (x :: st)) → isJust (unwindShape st)
+ij-lemma {x} {st} tt = ?
+
+unwindStack : ∀ {s} {ij : isJust (unwindShape s)} → Stack s → Stack $$ unwindShape s
+unwindStack {[]} {()} snil
+unwindStack (x :: st) = unwindStack {ij = tt} st
+unwindStack (h !! st) = st
+
 unwindCShape : ∀ {u s hs r} → (us : List U) → Code (s , u ∷ us ++ hs) (r , []) → Shape
 unwindCShape us (PUSH x ◅ is) = unwindCShape us is
 unwindCShape us (ADD    ◅ is) = unwindCShape us is
 unwindCShape us (THROW  ◅ is) = unwindCShape us is
 unwindCShape {u} us (MARK h ◅ is) = unwindCShape (u ∷ us) is
 unwindCShape {u} (v ∷ us) (UNMARK ◅ is) = unwindCShape us is
-unwindCShape {u} {Val .u ∷ Han .u ∷ s} {hs} [] (UNMARK ◅ is) = s
+unwindCShape {u} {Val .u ∷ Han .u ∷ s} {hs} [] (UNMARK ◅ is) = Val u ∷ s
 
 unwindCode : ∀ {u s hs r} → (us : List U)
   → (is : Code (s , u ∷ us ++ hs) (r , []))
-  → Code (unwindCShape [] is , hs) (r , [])
+  → Code (unwindCShape us is , hs) (r , [])
 unwindCode us (PUSH x ◅ is) = unwindCode us is
 unwindCode us (ADD    ◅ is) = unwindCode us is
 unwindCode us (THROW  ◅ is) = unwindCode us is
-unwindCode {u} us (MARK h ◅ is) = {!unwindCode (u ∷ us) is!}
-unwindCode us (UNMARK ◅ is) = {!!}
+unwindCode us (MARK h ◅ is) = unwindCode (_ ∷ us) is
+unwindCode (u ∷ us) (UNMARK ◅ is) = unwindCode us is
+unwindCode [] (UNMARK ◅ is) = is
 
 step : ∀ {s hs t ht r}
   → (i : Instr (s , hs) (t , ht))
@@ -52,7 +70,7 @@ step  UNMARK  is (x :: h !! st) = ✓[ is ,   x   :: st ]
 step {s} {hs = []     } THROW is st = ×[]
 step {s} {hs = u ∷ hs'} THROW is st with unwindShape s
 ... | nothing = ×[]
-... | just s' = ✓[ {!!} , {!!} ]
+... | just s' = ✓[ unwindCode [] is , {!!} ]
 
 step-decr : ∀ {s hs t ht r}
   → (i : Instr (s , hs) (t , ht))
