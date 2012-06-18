@@ -18,21 +18,15 @@ open import Denotation
 open import Machine
 open import Measure
 
--- Unwind the shape up to just below the top-most handler.
-unwindShape : Shape → Maybe Shape
-unwindShape (Han _ ∷ xs)  = just xs
-unwindShape (Val _ ∷ xs)  = unwindShape xs
-unwindShape []            = nothing
-
+{-
 data Resume (r : Shape) : Maybe Shape → Set where
-  Caught : ∀ {u s hs}
+  Caught : ∀ {u s}
     → (st : Stack s)
-    → (h  : Code (s , hs) (Val u ∷ s , hs))
-    → (is : Code (Val u ∷ s , hs) (r , []))
+    → (h  : Code s (Val u ∷ s))
+    → (is : Code (Val u ∷ s) r)
     → Resume r (just s)
   Uncaught : Resume r nothing
 
-{-
 
 unwindCShape : ∀ {u s hs r} → (us : List U) → Code (s , u ∷ us ++ hs) (r , []) → Shape
 unwindCShape us (PUSH x ◅ is) = unwindCShape us is
@@ -61,10 +55,6 @@ isJust : ∀ {a : Set} → Maybe a → Set
 isJust (just _) = ⊤
 isJust nothing  = ⊥
 
-_$$_ : ∀ {a : Set} → (F : a → Set) → (x : Maybe a) → Set
-F $$ just x = F x
-F $$ nothing = ⊥
-
 ij-lemma : ∀ u s' → isJust (unwindShape (Val u ∷ s')) ≡ isJust (unwindShape s')
 ij-lemma u s' = refl
 
@@ -75,23 +65,32 @@ unwindStack (h !! st) = st
 
 -}
 
-step : ∀ {s hs t ht r}
-  → (i : Instr (s , hs) (t , ht))
-  → (is : Code (t , ht) (r , []))
+-- Unwind the shape up to just below the top-most handler.
+unwindShape : Shape → Maybe Shape
+unwindShape (Han _ ∷ xs)  = just xs
+unwindShape (Val _ ∷ xs)  = unwindShape xs
+unwindShape []            = nothing
+
+_$$_ : ∀ {a : Set} → (F : a → Set) → (x : Maybe a) → Set
+F $$ just x = F x
+F $$ nothing = ⊥
+
+unwindCode : 
+
+step : ∀ {s t r}
+  → (i : Instr s t)
+  → (is : Code t r)
   → (st : Stack s)
   → State r
-step (PUSH x) is            st  = ✓[ is ,   x   :: st ]
+step (PUSH x) is            st  = ✓[ is ,     x :: st ]
 step  ADD     is (x :: y :: st) = ✓[ is , x + y :: st ]
-step (MARK h) is            st  = ✓[ is ,   h   !! st ]
-step  UNMARK  is (x :: h !! st) = ✓[ is ,   x   :: st ]
-step {s} {hs = []     } THROW is st = ×[]
-step {s} {hs = u ∷ hs'} THROW is st with unwindShape s
-... | nothing = ×[]
-... | just s' = ✓[ {!!} , {!!} ]
+step (MARK h) is            st  = ✓[ is ,     h !! st ]
+step  UNMARK  is (x :: h !! st) = ✓[ is ,     x :: st ]
+step  THROW   is            st  = {!!}
 
-step-decr : ∀ {s hs t ht r}
-  → (i : Instr (s , hs) (t , ht))
-  → (is : Code (t , ht) (r , []))
+step-decr : ∀ {s t r}
+  → (i : Instr s t)
+  → (is : Code t r)
   → (st : Stack s)
   → measureState (step i is st) < measureState ✓[ i ◅ is , st ]
 step-decr i is st = {!!}
@@ -104,8 +103,6 @@ run' ✓[ i ◅ is , st ] (acc acc-st)
   where
     nextState    = step      i is st
     next<current = step-decr i is st
-
-
 
 {-
 -- Get the type of the top-most handler in the Shape.

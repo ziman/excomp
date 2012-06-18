@@ -10,7 +10,7 @@ open import Induction.WellFounded
 
 open import Machine
 
-measureCode : ∀ {s t hs ht} → Code (s , hs) (t , ht) → ℕ
+measureCode : ∀ {s t} → Code s t → ℕ
 measureCode ε = zero
 measureCode (MARK h ◅ xs) = suc (measureCode h + measureCode xs)
 measureCode (x      ◅ xs) = suc (measureCode xs)
