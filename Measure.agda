@@ -3,17 +3,19 @@ module Measure where
 open import Function
 open import Data.Nat
 open import Data.Nat.Properties
-open import Data.Star
 open import Data.Product
 open import Induction.Nat renaming (<-well-founded to <′-well-founded)
 open import Induction.WellFounded
 
 open import Machine
 
-measureCode : ∀ {s t} → Code s t → ℕ
+measureCode : ∀ {hs s t} → Code hs s t → ℕ
 measureCode ε = zero
-measureCode (MARK h ◅ xs) = suc (measureCode h + measureCode xs)
-measureCode (x      ◅ xs) = suc (measureCode xs)
+measureCode (PUSH x ◅ is) = suc (measureCode is)
+measureCode (ADD    ◅ is) = suc (measureCode is)
+measureCode (MARK h ◅ is) = suc (measureCode is + measureCode h)
+measureCode (UNMARK ◅ is) = suc (measureCode is)
+measureCode (THROW  ◅ is) = suc (measureCode is)
 
 measureStack : ∀ {s} → Stack s → ℕ
 measureStack snil = zero
@@ -22,7 +24,7 @@ measureStack (h !! xs) = suc (measureCode h + measureStack xs)
 
 measureState : ∀ {r} → State r → ℕ
 measureState ×[] = zero
-measureState ✓[ code , stack ] = measureCode code + measureStack stack
+measureState ✓[ code , stack , eq ] = measureCode code + measureStack stack
 
 module MeasureWF (a : Set) (measure : a → ℕ) where
   module <-<′-equivalence where
