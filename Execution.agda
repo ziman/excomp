@@ -20,6 +20,31 @@ open import Measure
 ∷-inj₂ : ∀ {a : Set} {x y : a} {xs ys : List a} → (x ∷ xs) ≡ (y ∷ ys) → xs ≡ ys
 ∷-inj₂ refl = refl
 
+unwindShape : (us : List U) → Shape → Shape
+unwindShape []       s           = s
+unwindShape (u ∷ us) (Han v ∷ s) = unwindShape us s
+unwindShape us       (Val u ∷ s) = unwindShape us s
+unwindShape us       []          = []
+
+{-
+ushape-handlers : ∀ {s u us} → handlers s ≡ u ∷ us → handlers (unwindShape s) ≡ us
+ushape-handlers {[]} ()
+ushape-handlers {Val u ∷ xs} hs=uus = ushape-handlers {xs} hs=uus
+ushape-handlers {Han u ∷ xs} .{u} refl = refl
+-}
+
+unwindCode : ∀ {s us r}
+  → (us' : List U)
+  → Code (us' ++ us) s r
+  → (eq : handlers s ≡ us' ++ us)
+  → Code us (unwindShape us' s) r
+unwindCode [] is eq = is
+unwindCode (u ∷ us') (PUSH x ◅ is) eq = unwindCode (u ∷ us') is eq
+unwindCode (u ∷ us') (ADD    ◅ is) eq = unwindCode (u ∷ us') is eq
+unwindCode (u ∷ us') (THROW  ◅ is) eq = unwindCode (u ∷ us') is eq
+unwindCode (u ∷ us') (MARK h ◅ is) eq = unwindCode (_ ∷ u ∷ us') is (cong (_∷_ _) eq)
+unwindCode (u ∷ us') (UNMARK ◅ is) eq = unwindCode us' is (∷-inj₂ eq)
+
 step : ∀ {s hs t ht r}
   → (i : Instr hs s ht t)
   → (is : Code ht t r)
@@ -32,8 +57,7 @@ step (MARK h) is            st  eq = ✓[ is ,     h !! st , cong (λ us → _ �
 step  UNMARK  is (x :: h !! st) eq = ✓[ is ,     x :: st , ∷-inj₂ eq ]
 step {s} THROW is st eq with handlers s
 step THROW is st eq | [] = ×[]
-step THROW is st eq | u ∷ us rewrite eq = {!!}
-
+step THROW is st eq | u ∷ us = {!!}
 
 step-decr : ∀ {s hs t ht r}
   → (i : Instr hs s ht t)
