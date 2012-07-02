@@ -20,19 +20,18 @@ data Item : Set where
 Shape : Set
 Shape = List Item
 
-mutual
-  -- Instructions of the stack machine.
-  data Instr : Shape → Shape → Set where
-    PUSH : ∀ {u s} → el u → Instr s (Val u ∷ s)
-    ADD : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
-    MARK : ∀ {u s} → Instr s (Han u ∷ Skp u ∷ s)
-    HANDLE : ∀ {u s} → Instr (Val u ∷ Han u ∷ Skp u ∷ s) (Skp u ∷ s)
-    UNMARK : ∀ {u s} → Instr (Val u ∷ Skp u ∷ s) (Val u ∷ s) 
-    THROW : ∀ {u s} → Instr s (Val u ∷ s)
+-- Instructions of the stack machine.
+data Instr : Shape → Shape → Set where
+  PUSH : ∀ {u s} → el u → Instr s (Val u ∷ s)
+  ADD : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
+  MARK : ∀ {u s} → Instr s (Han u ∷ Skp u ∷ s)
+  HANDLE : ∀ {u s} → Instr (Val u ∷ Han u ∷ Skp u ∷ s) (Skp u ∷ s)
+  UNMARK : ∀ {u s} → Instr (Val u ∷ Skp u ∷ s) (Val u ∷ s) 
+  THROW : ∀ {u s} → Instr s (Val u ∷ s)
 
-  -- Code is an (indexed) list of instructions.
-  Code : Shape → Shape → Set
-  Code = Star Instr
+-- Code is an (indexed) list of instructions.
+Code : Shape → Shape → Set
+Code = Star Instr
 
 infixr 50 _::_ han_::_ skp_::_
 data Stack : Shape → Set where
