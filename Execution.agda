@@ -47,7 +47,7 @@ module MachineState where
     -- Exceptional state
     ![_,_] : (n : ℕ) → (st : Stack (unwindShape s n)) → State s
     -- Handler skipping (forward jump)
-    ×[_,_,_] : (u : U) → (n : ℕ) → (st : Stack (skipShape s n)) → State s
+    ×[_,_] : (n : ℕ) → (st : Stack (skipShape s n)) → State s
 
 open MachineState
 
@@ -70,19 +70,19 @@ execInstr  MARK    ![     n , st ] = ![ suc n , st ]
 execInstr  HANDLE  ![ suc n , st ] = ![     n , st ]
   
 -- Forward jump: trivial
-execInstr  THROW   ×[ u , n , st ] = ×[ u , n , st ]
-execInstr (PUSH x) ×[ u , n , st ] = ×[ u , n , st ]
-execInstr  ADD     ×[ u , n , st ] = ×[ u , n , st ]
-execInstr  HANDLE  ×[ u , n , st ] = ×[ u , n , st ]
-execInstr  MARK    ×[ u , n , st ] = ×[ u , suc n , st ]
-execInstr  UNMARK  ×[ u , suc n , st ] = ×[ u , n , st ]
-execInstr  UNMARK  ×[ u , zero  , st ] = ✓[ st ]
+execInstr  THROW   ×[ n , st ] = ×[ n , st ]
+execInstr (PUSH x) ×[ n , st ] = ×[ n , st ]
+execInstr  ADD     ×[ n , st ] = ×[ n , st ]
+execInstr  HANDLE  ×[ n , st ] = ×[ n , st ]
+execInstr  MARK    ×[ n , st ] = ×[ suc n , st ]
+execInstr  UNMARK  ×[ suc n , st ] = ×[ n , st ]
+execInstr  UNMARK  ×[ zero  , st ] = ✓[ st ]
   
 -- Exception handling: run the handler on exception
 execInstr HANDLE ![ zero , st ] = ✓[ st ]
   
 -- Exception handling: no exception, skip the handler, keeping the current stack
-execInstr HANDLE ✓[ x :: han u :: skp .u :: st ] = ×[ u , zero , x :: st ]
+execInstr HANDLE ✓[ x :: han u :: skp .u :: st ] = ×[ zero , x :: st ]
 
 -- Execution of code is nothing more than a left fold
 execCode : ∀ {s t} → Code s t → State s → State t
