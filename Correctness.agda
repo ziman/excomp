@@ -25,8 +25,8 @@ module Utils where
   _:::_ (just x) ![ n , st ] = ![ n , st ]
   _:::_ nothing  ×[ n , st ] = ×[ n , st ]
   _:::_ (just x) ×[ n , st ] = ×[ n , st ]
-  _:::_ nothing  ✓[   st   ] = ![ zero , unwindStack st zero ]
-  _:::_ (just x) ✓[   st   ] = ✓[ x :: st ]
+  _:::_ nothing  ✓[     st ] = ![ zero , unwindStack st zero ]
+  _:::_ (just x) ✓[     st ] = ✓[ x :: st ]
 
   -- Execution distributes over ◅◅
   distr : ∀ {s t u} (st : State s) (c : Code s t) (d : Code t u)

@@ -34,11 +34,11 @@ module MachineState where
 
   -- Unwind the stack up to just below the n-th handle-mark from the top.
   unwindStack : ∀ {s} → Stack s → (n : ℕ) → Stack (unwindShape s n)
-  unwindStack (han _ :: xs)  zero   = xs
-  unwindStack (han _ :: xs) (suc n) = unwindStack xs n
-  unwindStack (skp _ :: xs)  n      = unwindStack xs n
-  unwindStack (    _ :: xs)  n      = unwindStack xs n
-  unwindStack  snil          _      = snil
+  unwindStack (han:: xs)  zero   = xs
+  unwindStack (han:: xs) (suc n) = unwindStack xs n
+  unwindStack (skp:: xs)  n      = unwindStack xs n
+  unwindStack ( _ :: xs)  n      = unwindStack xs n
+  unwindStack  snil       _      = snil
 
   -- Execution state of the virtual machine.
   data State (s : Shape) : Set where
@@ -55,11 +55,11 @@ open MachineState
 execInstr : ∀ {s t} → Instr s t → State s → State t
 
 -- Normal operation
-execInstr (PUSH  x ) ✓[           st ] = ✓[    x    :: st ]
-execInstr  ADD       ✓[ x :: y :: st ] = ✓[ (x + y) :: st ]
-execInstr (MARK {u}) ✓[           st ] = ✓[ han u :: skp u :: st ]
-execInstr  THROW     ✓[           st ] = ![ zero , unwindStack st zero ]
-execInstr  UNMARK    ✓[ x :: skp u :: st ] = ✓[    x    :: st ]
+execInstr (PUSH x) ✓[            st ] = ✓[        x :: st ]
+execInstr  ADD     ✓[ x ::  y :: st ] = ✓[  (x + y) :: st ]
+execInstr  MARK    ✓[            st ] = ✓[ han:: skp:: st ]
+execInstr  THROW   ✓[            st ] = ![ zero , unwindStack st zero ]
+execInstr  UNMARK  ✓[ x :: skp:: st ] = ✓[        x :: st ]
   
 -- Exception handling: trivial
 execInstr  THROW   ![     n , st ] = ![     n , st ]
@@ -82,7 +82,7 @@ execInstr  UNMARK  ×[ zero  , st ] = ✓[ st ]
 execInstr HANDLE ![ zero , st ] = ✓[ st ]
   
 -- Exception handling: no exception, skip the handler, keeping the current stack
-execInstr HANDLE ✓[ x :: han u :: skp .u :: st ] = ×[ zero , x :: st ]
+execInstr HANDLE ✓[ x :: han:: skp:: st ] = ×[ zero , x :: st ]
 
 -- Execution of code is nothing more than a left fold
 execCode : ∀ {s t} → Code s t → State s → State t

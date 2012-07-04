@@ -33,10 +33,10 @@ data Instr : Shape → Shape → Set where
 Code : Shape → Shape → Set
 Code = Star Instr
 
-infixr 50 _::_ han_::_ skp_::_
+infixr 50 _::_ han::_ skp::_
 data Stack : Shape → Set where
   snil : Stack []
   _::_ : ∀ {u s} → el u → Stack s → Stack (Val u ∷ s)
-  han_::_ : ∀ {s} → (u : U) → Stack s → Stack (Han u ∷ s)
-  skp_::_ : ∀ {s} → (u : U) → Stack s → Stack (Skp u ∷ s)
+  han::_ : ∀ {s} → {u : U} → Stack s → Stack (Han u ∷ s)
+  skp::_ : ∀ {s} → {u : U} → Stack s → Stack (Skp u ∷ s)
 
