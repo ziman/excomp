@@ -23,7 +23,9 @@ Shape = List Item
 -- Instructions of the stack machine.
 data Instr : Shape → Shape → Set where
   PUSH : ∀ {u s} → el u → Instr s (Val u ∷ s)
-  ADD : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
+  ADD : ∀ {s} → Instr (Val nat ∷ Val nat ∷ s) (Val nat ∷ s)
+  AND : ∀ {s} → Instr (Val bool ∷ Val bool ∷ s) (Val bool ∷ s)
+  LEQ : ∀ {s} → Instr (Val nat ∷ Val nat ∷ s) (Val bool ∷ s)
   MARK : ∀ {u s} → Instr s (Han u ∷ Skp u ∷ s)
   HANDLE : ∀ {u s} → Instr (Val u ∷ Han u ∷ Skp u ∷ s) (Skp u ∷ s)
   UNMARK : ∀ {u s} → Instr (Val u ∷ Skp u ∷ s) (Val u ∷ s) 

@@ -2,13 +2,18 @@ module Denotation where
 
 open import Data.Nat
 open import Data.Maybe
+open import Data.Bool
 
 open import TypeUniverse
 open import Expression
 
+open import Relation.Nullary.Decidable
+
 -- Denotation of operators.
 denOp : ∀ {u v w} → Op u v w → el u → el v → el w
 denOp Plus = _+_
+denOp Leq  = λ x y → ⌊ x ≤? y ⌋
+denOp And  = _∧_
 
 -- Denotation of expressions.
 denExp : ∀ {u} → Exp u → Maybe (el u)

@@ -1,6 +1,7 @@
 module Execution where
 
 open import Function
+open import Data.Bool
 open import Data.Nat
 open import Data.Sum
 open import Data.List
@@ -8,6 +9,7 @@ open import Data.Star
 open import Data.Maybe
 open import Data.Product
 
+open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality
 
 open import TypeUniverse
@@ -55,9 +57,11 @@ open MachineState
 execInstr : ∀ {s t} → Instr s t → State s → State t
 
 -- Normal operation
-execInstr (PUSH x) ✓[            st ] = ✓[        x :: st ]
-execInstr  ADD     ✓[ x ::  y :: st ] = ✓[  (x + y) :: st ]
-execInstr  MARK    ✓[            st ] = ✓[ han:: skp:: st ]
+execInstr (PUSH x) ✓[            st ] = ✓[          x :: st ]
+execInstr  ADD     ✓[ x ::  y :: st ] = ✓[    (x + y) :: st ]
+execInstr  AND     ✓[ x ::  y :: st ] = ✓[    (x ∧ y) :: st ]
+execInstr  LEQ     ✓[ x ::  y :: st ] = ✓[ ⌊ x ≤? y ⌋ :: st ]
+execInstr  MARK    ✓[            st ] = ✓[   han:: skp:: st ]
 execInstr  THROW   ✓[            st ] = ![ zero , unwindStack st zero ]
 execInstr  UNMARK  ✓[ x :: skp:: st ] = ✓[        x :: st ]
   
@@ -65,6 +69,8 @@ execInstr  UNMARK  ✓[ x :: skp:: st ] = ✓[        x :: st ]
 execInstr  THROW   ![     n , st ] = ![     n , st ]
 execInstr (PUSH x) ![     n , st ] = ![     n , st ]
 execInstr  ADD     ![     n , st ] = ![     n , st ]
+execInstr  AND     ![     n , st ] = ![     n , st ]
+execInstr  LEQ     ![     n , st ] = ![     n , st ]
 execInstr  UNMARK  ![     n , st ] = ![     n , st ]
 execInstr  MARK    ![     n , st ] = ![ suc n , st ]
 execInstr  HANDLE  ![ suc n , st ] = ![     n , st ]
@@ -73,6 +79,8 @@ execInstr  HANDLE  ![ suc n , st ] = ![     n , st ]
 execInstr  THROW   ×[ n , st ] = ×[ n , st ]
 execInstr (PUSH x) ×[ n , st ] = ×[ n , st ]
 execInstr  ADD     ×[ n , st ] = ×[ n , st ]
+execInstr  AND     ×[ n , st ] = ×[ n , st ]
+execInstr  LEQ     ×[ n , st ] = ×[ n , st ]
 execInstr  HANDLE  ×[ n , st ] = ×[ n , st ]
 execInstr  MARK    ×[ n , st ] = ×[ suc n , st ]
 execInstr  UNMARK  ×[ suc n , st ] = ×[ n , st ]

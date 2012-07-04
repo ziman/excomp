@@ -52,6 +52,30 @@ lemma-op r l Plus ×[ n , st ] | just x  | just y  = refl
 lemma-op r l Plus ×[ n , st ] | just x  | nothing = refl
 lemma-op r l Plus ×[ n , st ] | nothing | just y  = refl
 lemma-op r l Plus ×[ n , st ] | nothing | nothing = refl
+lemma-op r l Leq ✓[ st ] | just x  | just y  = refl
+lemma-op r l Leq ✓[ st ] | just x  | nothing = refl
+lemma-op r l Leq ✓[ st ] | nothing | just y  = refl
+lemma-op r l Leq ✓[ st ] | nothing | nothing = refl
+lemma-op r l Leq ![ n , st ] | just x  | just y  = refl
+lemma-op r l Leq ![ n , st ] | just x  | nothing = refl
+lemma-op r l Leq ![ n , st ] | nothing | just y  = refl
+lemma-op r l Leq ![ n , st ] | nothing | nothing = refl
+lemma-op r l Leq ×[ n , st ] | just x  | just y  = refl
+lemma-op r l Leq ×[ n , st ] | just x  | nothing = refl
+lemma-op r l Leq ×[ n , st ] | nothing | just y  = refl
+lemma-op r l Leq ×[ n , st ] | nothing | nothing = refl
+lemma-op r l And ✓[ st ] | just x  | just y  = refl
+lemma-op r l And ✓[ st ] | just x  | nothing = refl
+lemma-op r l And ✓[ st ] | nothing | just y  = refl
+lemma-op r l And ✓[ st ] | nothing | nothing = refl
+lemma-op r l And ![ n , st ] | just x  | just y  = refl
+lemma-op r l And ![ n , st ] | just x  | nothing = refl
+lemma-op r l And ![ n , st ] | nothing | just y  = refl
+lemma-op r l And ![ n , st ] | nothing | nothing = refl
+lemma-op r l And ×[ n , st ] | just x  | just y  = refl
+lemma-op r l And ×[ n , st ] | just x  | nothing = refl
+lemma-op r l And ×[ n , st ] | nothing | just y  = refl
+lemma-op r l And ×[ n , st ] | nothing | nothing = refl
 
 -- Central case analysis for catch-blocks
 lemma-catch : ∀ {u s} (e h : Exp u) (st : State s)

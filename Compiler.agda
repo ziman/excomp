@@ -13,6 +13,8 @@ open import Code
 -- Translate operators to instructions.
 opInstr : ∀ {s t u v} → Op s t u → Instr (Val s ∷ Val t ∷ v) (Val u ∷ v)
 opInstr Plus = ADD
+opInstr And  = AND
+opInstr Leq  = LEQ
 
 -- Singleton code
 ⟦_⟧ : ∀ {s t} → Instr s t → Code s t
