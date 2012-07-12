@@ -15,7 +15,7 @@ Shape = List U
 -- Instructions of the stack machine.
 data Instr : Shape → Shape → Set where
   PUSH : ∀ {u s} → el u → Instr s (u ∷ s)
-  ADD  : ∀ {s} → Instr (Nat ∷ Nat ∷ s) (Nat ∷ s)
+  APPLY  : ∀ {u v s} → Instr ((u ⇒ v) ∷ u ∷ s) (v ∷ s)
 
 -- Code is an (indexed) list of instructions.
 Code : Shape → Shape → Set
@@ -24,6 +24,6 @@ Code = Star Instr
 -- Stack is a shape-indexed... well, stack.
 infixr 5 _:-:_
 data Stack : Shape → Set where
-  ∅ : Stack []
+  snil : Stack []
   _:-:_ : ∀ {u s} → el u → Stack s → Stack (u ∷ s)
 

@@ -5,16 +5,12 @@ open import Data.Nat
 open import TypeUniverse
 open import Expression
 
--- Denotation of operators.
-denOp : ∀ {u v w} → Op u v w → el u → el v → el w
-denOp Plus = _+_
-
 -- Denotation of expressions.
 denExp : ∀ {u} → Exp u → el u
-denExp (Lit n)      = n
-denExp (Bin op l r) = denOp op (denExp l) (denExp r)
+denExp (Lit n) = n
+denExp (f $ x) = (denExp f) (denExp x)
 
 private
-  -- Usage: C-c C-n example₁
-  example₁ : ℕ
-  example₁ = denExp (Bin Plus (Lit 3) (Lit 4))
+  -- Usage: C-c C-n example
+  example : ℕ
+  example = denExp (Lit _+_ $ Lit 3 $ Lit 4)
