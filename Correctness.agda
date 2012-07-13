@@ -23,23 +23,7 @@ op-correct Plus = refl
 compile-distr : ∀ {t u v} (code₁ : Code t u) (code₂ : Code u v) (st : Stack t)
   → execCode (code₁ ◅◅ code₂) st ≡ execCode code₂ (execCode code₁ st)
 compile-distr ε cs st = refl
-compile-distr (i ◅ is) cs st = begin
-    execCode ((i ◅ is) ◅◅ cs) st
-      ≡⟨ refl ⟩
-    execCode (is ◅◅ cs) (execInstr i st)
-      ≡⟨ compile-distr is cs _ ⟩
-    execCode cs (execCode is (execInstr i st))
-      ≡⟨ refl ⟩
-    execCode cs (execCode (i ◅ is) st)
-      ∎
-  where
-    open ≡-Reasoning
-
--- Alternative proof of compile-distr.
-compile-distr' : ∀ {t u v} (code₁ : Code t u) (code₂ : Code u v) (st : Stack t)
-  → execCode (code₁ ◅◅ code₂) st ≡ execCode code₂ (execCode code₁ st)
-compile-distr' ε cs st = refl
-compile-distr' (i ◅ is) cs st rewrite compile-distr' is cs (execInstr i st) = refl
+compile-distr (i ◅ is) cs st = compile-distr is cs _
 
 -- The main correctness theorem: executing compiled code is equivalent
 -- to pushing the correspondent denotation to the stack.
