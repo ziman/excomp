@@ -32,7 +32,7 @@ module Utils where
   distr : ∀ {s t u} (st : State s) (c : Code s t) (d : Code t u)
     → execCode (c ◅◅ d) st ≡ execCode d (execCode c st)
   distr st ε d = refl
-  distr st (i ◅ is) d rewrite distr (execInstr i st) is d = refl
+  distr st (i ◅ is) d = distr _ is d
 
 open Utils
 
