@@ -1,18 +1,9 @@
 module Execution where
 
-open import Function
 open import Data.Nat
-open import Data.Sum
 open import Data.List
 open import Data.Star
-open import Data.Maybe
-open import Data.Product
 
-open import Relation.Binary.PropositionalEquality
-
-open import TypeUniverse
-open import Expression
-open import Denotation
 open import Code
 
 module MachineState where
@@ -45,9 +36,9 @@ module MachineState where
     -- Normal operation
     ✓[_] : (st : Stack s) → State s
     -- Exceptional state
-    ![_,_] : (n : ℕ) → (st : Stack (unwindShape s n)) → State s
+    ×[_,_] : (n : ℕ) → (st : Stack (unwindShape s n)) → State s
     -- Handler skipping (forward jump)
-    ×[_,_] : (n : ℕ) → (st : Stack (skipShape s n)) → State s
+    ![_,_] : (n : ℕ) → (st : Stack (skipShape s n)) → State s
 
 open MachineState
 
@@ -58,31 +49,31 @@ execInstr : ∀ {s t} → Instr s t → State s → State t
 execInstr (PUSH x) ✓[            st ] = ✓[        x :: st ]
 execInstr  ADD     ✓[ x ::  y :: st ] = ✓[  (x + y) :: st ]
 execInstr  MARK    ✓[            st ] = ✓[ han:: skp:: st ]
-execInstr  THROW   ✓[            st ] = ![ zero , unwindStack st zero ]
+execInstr  THROW   ✓[            st ] = ×[ zero , unwindStack st zero ]
 execInstr  UNMARK  ✓[ x :: skp:: st ] = ✓[        x :: st ]
   
 -- Exception handling: trivial
-execInstr  THROW   ![     n , st ] = ![     n , st ]
-execInstr (PUSH x) ![     n , st ] = ![     n , st ]
-execInstr  ADD     ![     n , st ] = ![     n , st ]
-execInstr  UNMARK  ![     n , st ] = ![     n , st ]
-execInstr  MARK    ![     n , st ] = ![ suc n , st ]
-execInstr  HANDLE  ![ suc n , st ] = ![     n , st ]
+execInstr  THROW   ×[     n , st ] = ×[     n , st ]
+execInstr (PUSH x) ×[     n , st ] = ×[     n , st ]
+execInstr  ADD     ×[     n , st ] = ×[     n , st ]
+execInstr  UNMARK  ×[     n , st ] = ×[     n , st ]
+execInstr  MARK    ×[     n , st ] = ×[ suc n , st ]
+execInstr  HANDLE  ×[ suc n , st ] = ×[     n , st ]
   
 -- Forward jump: trivial
-execInstr  THROW   ×[ n , st ] = ×[ n , st ]
-execInstr (PUSH x) ×[ n , st ] = ×[ n , st ]
-execInstr  ADD     ×[ n , st ] = ×[ n , st ]
-execInstr  HANDLE  ×[ n , st ] = ×[ n , st ]
-execInstr  MARK    ×[ n , st ] = ×[ suc n , st ]
-execInstr  UNMARK  ×[ suc n , st ] = ×[ n , st ]
-execInstr  UNMARK  ×[ zero  , st ] = ✓[ st ]
+execInstr  THROW   ![ n , st ] = ![ n , st ]
+execInstr (PUSH x) ![ n , st ] = ![ n , st ]
+execInstr  ADD     ![ n , st ] = ![ n , st ]
+execInstr  HANDLE  ![ n , st ] = ![ n , st ]
+execInstr  MARK    ![ n , st ] = ![ suc n , st ]
+execInstr  UNMARK  ![ suc n , st ] = ![ n , st ]
+execInstr  UNMARK  ![ zero  , st ] = ✓[ st ]
   
 -- Exception handling: run the handler on exception
-execInstr HANDLE ![ zero , st ] = ✓[ st ]
+execInstr HANDLE ×[ zero , st ] = ✓[ st ]
   
 -- Exception handling: no exception, skip the handler, keeping the current stack
-execInstr HANDLE ✓[ x :: han:: skp:: st ] = ×[ zero , x :: st ]
+execInstr HANDLE ✓[ x :: han:: skp:: st ] = ![ zero , x :: st ]
 
 -- Execution of code is nothing more than a left fold
 execCode : ∀ {s t} → Code s t → State s → State t
