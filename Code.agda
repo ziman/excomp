@@ -1,14 +1,9 @@
 module Code where
 
-open import Function
 open import Data.List
-open import Data.Sum
-open import Data.Maybe
 open import Data.Star
-open import Data.Unit
 
 open import TypeUniverse
-open import Expression
 
 -- Stack items.
 data Item : Set where

@@ -6,7 +6,6 @@ open import Data.Bool
 
 open import TypeUniverse
 open import Expression
-
 open import Relation.Nullary.Decidable
 
 -- Denotation of operators.
@@ -27,8 +26,3 @@ denExp (Bin op l r) with denExp l | denExp r
 ... | just x  | nothing = nothing
 ... | nothing | just y  = nothing
 ... | nothing | nothing = nothing
-
-private
-  -- Usage: C-c C-n example₁
-  example₁ : Maybe ℕ
-  example₁ = denExp (Bin Plus (Lit 3) (Lit 4))
