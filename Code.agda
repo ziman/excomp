@@ -1,9 +1,6 @@
 module Code where
 
-open import Function
 open import Data.List
-open import Data.Sum
-open import Data.Maybe
 open import Data.Star
 
 open import TypeUniverse
@@ -22,7 +19,7 @@ mutual
   -- Instructions of the stack machine.
   data Instr : Shape → Shape → Set where
     PUSH : ∀ {u s} → el u → Instr s (Val u ∷ s)
-    ADD : ∀ {s} → Instr (Val Nat ∷ Val Nat ∷ s) (Val Nat ∷ s)
+    ADD : ∀ {s} → Instr (Val nat ∷ Val nat ∷ s) (Val nat ∷ s)
     MARK : ∀ {u s} → Code s (Val u ∷ s) → Instr s (Han u ∷ s)
     UNMARK : ∀ {u s} → Instr (Val u ∷ Han u ∷ s) (Val u ∷ s)
     THROW : ∀ {u s} → Instr s (Val u ∷ s)

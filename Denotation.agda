@@ -20,8 +20,3 @@ denExp (Lit n)      = just n
 denExp (Bin op l r) with denExp l | denExp r
 ... | just x | just y = just (denOp op x y)
 ... | _      | _      = nothing
-
-private
-  -- Usage: C-c C-n example₁
-  example₁ : Maybe ℕ
-  example₁ = denExp (Bin Plus (Lit 3) (Lit 4))
