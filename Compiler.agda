@@ -1,13 +1,9 @@
 module Compiler where
 
-open import Function
-open import Data.Nat
 open import Data.List
 open import Data.Star
 
-open import TypeUniverse
 open import Expression
-open import Denotation
 open import Code
 
 -- Translate operators to instructions.

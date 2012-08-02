@@ -1,18 +1,9 @@
 module Execution where
 
-open import Function
 open import Data.Nat
-open import Data.Sum
 open import Data.List
 open import Data.Star
-open import Data.Maybe
-open import Data.Product
 
-open import Relation.Binary.PropositionalEquality
-
-open import TypeUniverse
-open import Expression
-open import Denotation
 open import Code
 
 -- Unwind the shape up to just below the top-most handler.
@@ -34,7 +25,7 @@ data State (s : Shape) : Set where
   -- Normal operation: plain old stack.
   ✓[_] : Stack s → State s
   -- Exceptional state: skip instructions until the corresponding UNMARK and then resume.
-  ![_,_] : (n : ℕ) → Stack (unwindShape s n) → State s
+  ×[_,_] : (n : ℕ) → Stack (unwindShape s n) → State s
 
 mutual
   -- Instruction execution
@@ -48,17 +39,17 @@ mutual
 
   -- Exception throwing
   -- Unwind the stack, creating a resumption point. Instruction skipping begins.
-  execInstr THROW ✓[ st ] = ![ zero , unwindStack st zero  ]
+  execInstr THROW ✓[ st ] = ×[ zero , unwindStack st zero  ]
 
   -- Non-trivial exception processing
-  execInstr MARK       ![ n     , st ] = ![ suc n , st ]
-  execInstr (UNMARK _) ![ suc n , st ] = ![ n     , st ]
-  execInstr (UNMARK h) ![ zero  , st ] = execCode h ✓[ st ]
+  execInstr MARK       ×[ n     , st ] = ×[ suc n , st ]
+  execInstr (UNMARK _) ×[ suc n , st ] = ×[ n     , st ]
+  execInstr (UNMARK h) ×[ zero  , st ] = execCode h ✓[ st ]
 
   -- Trivial exception processing: instruction skipping
-  execInstr THROW    ![ n , st ] = ![ n , st ]
-  execInstr ADD      ![ n , st ] = ![ n , st ]
-  execInstr (PUSH _) ![ n , st ] = ![ n , st ]
+  execInstr THROW    ×[ n , st ] = ×[ n , st ]
+  execInstr ADD      ×[ n , st ] = ×[ n , st ]
+  execInstr (PUSH _) ×[ n , st ] = ×[ n , st ]
 
   -- Code execution
   -- This is a left fold over instructions.

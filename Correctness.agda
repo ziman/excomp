@@ -17,9 +17,9 @@ open import Execution
 -- Smart stack pusher
 infixr 5 _:::_
 _:::_ : ∀ {u s} → Maybe (el u) → State s → State (Val u ∷ s)
-_:::_ nothing  ![ n , st ] = ![ n , st ]
-_:::_ (just x) ![ n , st ] = ![ n , st ]
-_:::_ nothing  ✓[   st   ] = ![ zero , unwindStack st zero ]
+_:::_ nothing  ×[ n , st ] = ×[ n , st ]
+_:::_ (just x) ×[ n , st ] = ×[ n , st ]
+_:::_ nothing  ✓[   st   ] = ×[ zero , unwindStack st zero ]
 _:::_ (just x) ✓[   st   ] = ✓[ x :: st ]
 
 -- Execution distributes over ◅◅
@@ -36,10 +36,10 @@ lemma-op r l Plus ✓[ st ] | just x  | just y  = refl
 lemma-op r l Plus ✓[ st ] | just x  | nothing = refl
 lemma-op r l Plus ✓[ st ] | nothing | just y  = refl
 lemma-op r l Plus ✓[ st ] | nothing | nothing = refl
-lemma-op r l Plus ![ n , st ] | just x  | just y  = refl
-lemma-op r l Plus ![ n , st ] | just x  | nothing = refl
-lemma-op r l Plus ![ n , st ] | nothing | just y  = refl
-lemma-op r l Plus ![ n , st ] | nothing | nothing = refl
+lemma-op r l Plus ×[ n , st ] | just x  | just y  = refl
+lemma-op r l Plus ×[ n , st ] | just x  | nothing = refl
+lemma-op r l Plus ×[ n , st ] | nothing | just y  = refl
+lemma-op r l Plus ×[ n , st ] | nothing | nothing = refl
 
 -- Central case analysis for exception handlers
 lemma-catch : ∀ {s u} (e : Exp u) (h : Exp u) (st : State s)
@@ -47,13 +47,13 @@ lemma-catch : ∀ {s u} (e : Exp u) (h : Exp u) (st : State s)
   → execInstr (UNMARK (compile h)) (denExp e ::: execInstr MARK st) ≡ denExp (Catch e h) ::: st
 lemma-catch e h st pf with denExp e
 lemma-catch e h ✓[ st ] pf | just x = refl
-lemma-catch e h ![ n , st ] pf | just x = refl
+lemma-catch e h ×[ n , st ] pf | just x = refl
 lemma-catch e h ✓[ st ] pf | nothing with denExp h
 lemma-catch e h ✓[ st ] pf | nothing | just x  = pf ✓[ st ]
 lemma-catch e h ✓[ st ] pf | nothing | nothing = pf ✓[ st ]
-lemma-catch e h ![ n , st ] pf | nothing with denExp h
-lemma-catch e h ![ n , st ] pf | nothing | just x  = refl
-lemma-catch e h ![ n , st ] pf | nothing | nothing = refl
+lemma-catch e h ×[ n , st ] pf | nothing with denExp h
+lemma-catch e h ×[ n , st ] pf | nothing | just x  = refl
+lemma-catch e h ×[ n , st ] pf | nothing | nothing = refl
 
 -- ** The main correctness theorem **
 correctness : ∀ {u} (e : Exp u) {s : Shape} (st : State s)
@@ -61,9 +61,9 @@ correctness : ∀ {u} (e : Exp u) {s : Shape} (st : State s)
 
 -- Trivial cases
 correctness Throw ✓[ st ] = refl
-correctness Throw ![ n , st ] = refl
+correctness Throw ×[ n , st ] = refl
 correctness (Lit x) ✓[ st ] = refl
-correctness (Lit x) ![ n , st ] = refl
+correctness (Lit x) ×[ n , st ] = refl
 
 -- Binary operators
 correctness (Bin op l r) st = let open ≡-Reasoning in begin
