@@ -13,8 +13,3 @@ denOp Plus = _+_
 denExp : ∀ {u} → Exp u → el u
 denExp (Lit n)      = n
 denExp (Bin op l r) = denOp op (denExp l) (denExp r)
-
-private
-  -- Usage: C-c C-n example₁
-  example₁ : ℕ
-  example₁ = denExp (Bin Plus (Lit 3) (Lit 4))

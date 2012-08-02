@@ -4,11 +4,7 @@ open import Function
 open import Data.Nat
 open import Data.Star
 
-open import TypeUniverse
-open import Expression
-open import Denotation
 open import Code
-open import Compiler
 
 -- Execute a single instruction.
 execInstr : ∀ {s t} → Instr s t → Stack s → Stack t
